@@ -1,0 +1,66 @@
+/* --------------------------------------------------------------------------
+   使用者體驗修正：文字可讀性 + 更可愛圓潤的介面語氣
+   -------------------------------------------------------------------------- */
+@layer utilities {
+  .cute-readable-text {
+    color: #33251c;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+  }
+}
+
+@layer components {
+  /* 透明/漸層背景上常見的淺色文字，統一提高對比，避免看不清楚。 */
+  .text-stone-400,
+  .text-slate-400,
+  .text-zinc-400,
+  .text-neutral-400 {
+    color: #6b5a48 !important;
+  }
+
+  .text-stone-500,
+  .text-slate-500,
+  .text-zinc-500,
+  .text-neutral-500 {
+    color: #514538 !important;
+  }
+
+  [class*="text-white/"] {
+    color: rgba(255, 255, 255, 0.96) !important;
+    text-shadow: 0 1px 6px rgba(36, 24, 12, 0.55);
+  }
+
+  [class*="text-cyan-50"],
+  [class*="text-lime-50"],
+  [class*="text-yellow-50"],
+  [class*="text-orange-50"],
+  [class*="text-violet-50"] {
+    text-shadow: 0 1px 6px rgba(36, 24, 12, 0.40);
+  }
+
+  /* 不影響功能，只讓互動動畫更短、更不容易造成重繪卡頓。 */
+  button,
+  [role="button"] {
+    transition-duration: 150ms;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-card-fast-feedback {
+        transform: translateZ(0);
+    }
+  }
+
+  @media (pointer: coarse), (max-width: 768px) {
+    .backdrop-blur,
+    .backdrop-blur-sm,
+    .backdrop-blur-md,
+    .backdrop-blur-lg,
+    .backdrop-blur-xl,
+    .backdrop-blur-2xl,
+    .backdrop-blur-3xl {
+      --tw-backdrop-blur: blur(0px) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+  }
+}
+

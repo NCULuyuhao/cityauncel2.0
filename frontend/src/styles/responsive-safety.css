@@ -1,0 +1,358 @@
+/* --------------------------------------------------------------------------
+   石虎系統：Responsive / iPad Safari safety layer
+   --------------------------------------------------------------------------
+   目的：
+   1. 防止 iPad Safari 因 viewport 單位、fixed/absolute 疊層造成內容裁切。
+   2. 讓所有容器內的圖片、SVG、表格、表單元件與 flex/grid 子項目不會撐爆容器。
+   3. 保留原本的視覺設計，只做版面安全修正。
+*/
+@layer base {
+  :root {
+    --cityauncel-font-body: "CityauncelRounded", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+    --cityauncel-font-rounded: "CityauncelRounded", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+    font-synthesis: weight;
+    background: #f3efe6;
+  }
+
+  html {
+    width: 100%;
+    min-width: 320px;
+    min-height: 100%;
+    overflow-x: hidden;
+    background: #f3efe6;
+  }
+
+  body, #root {
+    width: 100%;
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
+    background: #f3efe6;
+  }
+
+  body {
+    font-family: var(--cityauncel-font-body);
+  }
+
+  * {
+    font-family: inherit;
+  }
+
+  @supports (min-height: 100dvh) {
+    body, #root {
+      min-height: 100dvh;
+    }
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    html, body, #root {
+      min-height: -webkit-fill-available;
+    }
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  img, svg, video, canvas, iframe {
+    max-width: 100%;
+  }
+
+  img, video, canvas {
+    height: auto;
+  }
+
+  button, input, textarea, select {
+    max-width: 100%;
+    font: inherit;
+  }
+
+  body {
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3,
+  button, [role="button"],
+  .game-title, .game-section-title, .game-button,
+  .auth-card, .auth-title,
+  .card-title, .task-title, .inquiry-title,
+  .font-game-rounded,
+  [class*="game-"],
+  [class*="Game"],
+  [class*="title"],
+  [class*="Title"] {
+    font-family: var(--cityauncel-font-rounded);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+
+  h1, h2, .game-title, .auth-title, .task-title {
+    font-weight: 900;
+  }
+
+  /* 大型系統標題加粗：遊戲名稱、任務標題、稱號收藏等。
+     使用本機字體的合成粗體與輕量文字陰影，不新增外部字體載入。 */
+  .game-major-title,
+  .home-task-title,
+  .home-reward-title,
+  .system-major-title {
+    font-family: var(--cityauncel-font-rounded) !important;
+    font-weight: 900 !important;
+    text-shadow:
+      0.018em 0 0 currentColor,
+      -0.018em 0 0 currentColor,
+      0 0.018em 0 currentColor;
+    text-rendering: geometricPrecision;
+  }
+
+  .game-major-title {
+    letter-spacing: 0.16em;
+  }
+
+  .home-task-title,
+  .home-reward-title {
+    letter-spacing: 0.08em;
+  }
+
+  .font-sans, .font-serif {
+    font-family: var(--cityauncel-font-rounded) !important;
+  }
+
+  input, textarea, select,
+  p, li, table, .data-description, .evidence-note, .student-note, .analysis-text {
+    font-family: var(--cityauncel-font-body) !important;
+  }
+
+  svg text,
+  .recharts-text,
+  .recharts-cartesian-axis-tick-value,
+  .recharts-label,
+  .recharts-legend-item-text {
+    font-family: var(--cityauncel-font-body) !important;
+  }
+
+  input, textarea, select {
+    min-width: 0;
+  }
+
+  table {
+    max-width: 100%;
+    border-collapse: collapse;
+  }
+}
+
+@layer utilities {
+  .ios-safe-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+
+  .responsive-page {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+
+  .container-safe {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .object-fit-safe {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .page-transition-layer {
+    width: 100%;
+    min-width: 0;
+    will-change: opacity;
+  }
+
+  .soft-screen-surface {
+    animation: soft-screen-enter 220ms ease-out both;
+  }
+
+  .soft-action-transition {
+    transition-property: opacity, box-shadow, background-color, border-color, color, filter;
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+  }
+}
+
+@layer components {
+  /* 常見卡片 / 面板：允許內容縮放，不讓內層元素把容器撐壞 */
+  .rounded-xl, .rounded-2xl, .rounded-3xl,
+  .rounded-\[20px\], .rounded-\[22px\], .rounded-\[24px\], .rounded-\[26px\],
+  .rounded-\[28px\], .rounded-\[30px\], .rounded-\[32px\], .rounded-\[34px\], .rounded-\[36px\] {
+    min-width: 0;
+  }
+
+  .flex > *, .grid > * {
+    min-width: 0;
+  }
+
+  /* 橫向資訊列在窄螢幕自動換行，不再擠出容器。 */
+  @media (max-width: 600px) {
+    .flex:not(.flex-col) {
+      min-width: 0;
+    }
+
+    .tracking-\[0\.12em\], .tracking-\[0\.18em\], .tracking-\[0\.2em\], .tracking-\[0\.24em\], .tracking-\[0\.28em\], .tracking-\[0\.32em\] {
+      letter-spacing: 0.08em;
+    }
+  }
+
+  /* 容器內圖片：盡量完整顯示，避免裁切與變形。 */
+  [class*="rounded"] > img,
+  [class*="shadow"] > img,
+  [class*="border"] > img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  button, [role="button"], a[href] {
+    transition-property: opacity, box-shadow, background-color, border-color, color, filter;
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  a[href]:active {
+    opacity: 0.9;
+  }
+
+  /* 行動裝置互動目標至少 44px，避免 iPad / iPhone 難點擊。 */
+  @media (pointer: coarse) {
+    button, a, input, select, textarea {
+      touch-action: manipulation;
+    }
+
+    button, [role="button"] {
+      min-height: 44px;
+    }
+  }
+
+  /* 小螢幕避免大標題把卡片撐破。 */
+  @media (max-width: 640px) {
+    h1, h2, h3 {
+      overflow-wrap: anywhere;
+      line-height: 1.12;
+    }
+
+    p, span, button, input, textarea, label {
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
+@layer components {
+  .card-pack-card-rotator {
+    -webkit-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+
+  .card-pack-card-face {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  .card-pack-card-back-face {
+    -webkit-transform: rotateY(180deg) translateZ(1px);
+    transform: rotateY(180deg) translateZ(1px);
+  }
+
+  .card-pack-back-image {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    @media (pointer: coarse) {
+      .card-pack-card-front-text {
+        opacity: 1 !important;
+      }
+
+      .card-pack-card-crisp-text {
+        display: none !important;
+      }
+    }
+  }
+
+  .card-pack-sparkle-button {
+    isolation: isolate;
+    animation: card-pack-glow 1.6s ease-in-out infinite;
+  }
+
+  .card-pack-sparkle-button::before {
+    content: "";
+    position: absolute;
+    inset: -45%;
+    z-index: -1;
+    background:
+      radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 2px, transparent 3px),
+      radial-gradient(circle, rgba(255, 236, 160, 0.9) 0 3px, transparent 4px),
+      linear-gradient(115deg, transparent 0 38%, rgba(255, 255, 255, 0.82) 46%, transparent 55%);
+    background-size: 44px 44px, 72px 72px, 220% 100%;
+    background-position: 0 0, 18px 22px, -160% 0;
+    opacity: 0.72;
+    animation: card-pack-sparkles 1.8s linear infinite;
+    pointer-events: none;
+  }
+
+  .card-pack-sparkle-button::after {
+    content: "✨";
+    position: absolute;
+    right: -0.45rem;
+    top: -0.75rem;
+    font-size: 1.35rem;
+    filter: drop-shadow(0 0 8px rgba(255, 225, 104, 0.95));
+    animation: card-pack-star-pop 1.25s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes card-pack-glow {
+  0%, 100% {
+    box-shadow: 0 0 18px rgba(244, 211, 125, 0.62), 0 10px 24px rgba(107, 70, 23, 0.16);
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 36px rgba(255, 225, 104, 0.96), 0 14px 32px rgba(107, 70, 23, 0.22);
+    transform: translateY(-1px) scale(1.025);
+  }
+}
+
+@keyframes card-pack-sparkles {
+  0% {
+    background-position: 0 0, 18px 22px, -160% 0;
+  }
+  100% {
+    background-position: 44px -44px, -54px 94px, 160% 0;
+  }
+}
+
+@keyframes card-pack-star-pop {
+  0%, 100% {
+    opacity: 0.72;
+    transform: rotate(-8deg) scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(8deg) scale(1.18);
+  }
+}

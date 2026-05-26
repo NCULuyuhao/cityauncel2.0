@@ -1,0 +1,182 @@
+/* --------------------------------------------------------------------------
+   Soft pastel tuning: 降低整體飽和度、提高文字可讀性、減少卡牌列表卡頓
+   -------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    --game-gold: #efd68a;
+    --game-amber: #f7eac2;
+    --game-leaf: #9caf86;
+    --game-leaf-dark: #607a55;
+    --game-mint: #dceacb;
+    --game-red: #c98476;
+    --game-sky: #a9cad3;
+    --game-paper: #fff7e6;
+    --game-card: rgba(255, 251, 239, 0.94);
+    --game-shadow: 0 20px 48px rgba(72, 52, 36, 0.16);
+    background:
+      radial-gradient(circle at 12% 8%, rgba(255, 244, 188, 0.52), transparent 24rem),
+      radial-gradient(circle at 88% 12%, rgba(196, 213, 174, 0.48), transparent 22rem),
+      radial-gradient(circle at 50% 95%, rgba(181, 151, 111, 0.16), transparent 28rem),
+      linear-gradient(145deg, #fff2c7 0%, #ead9ad 40%, #b8ca9a 100%);
+  }
+
+  html,
+  body,
+  #root {
+    background:
+      radial-gradient(circle at 16% 10%, rgba(255, 247, 202, 0.64), transparent 22rem),
+      radial-gradient(circle at 84% 16%, rgba(190, 211, 170, 0.48), transparent 26rem),
+      linear-gradient(145deg, #fff3cc 0%, #ead8aa 42%, #b6c99b 100%) !important;
+  }
+}
+
+@layer components {
+  .game-auth-shell,
+  .game-adventure-page {
+    background:
+      radial-gradient(circle at 14% 14%, rgba(255,255,255,0.78), transparent 16rem),
+      radial-gradient(circle at 88% 12%, rgba(239,214,138,0.30), transparent 17rem),
+      radial-gradient(circle at 52% 105%, rgba(156,175,134,0.30), transparent 30rem),
+      linear-gradient(145deg, #fff3cf 0%, #ead7a7 44%, #b5c99a 100%) !important;
+  }
+
+  .game-shell-card,
+  .game-panel,
+  .game-stage-card {
+    border-color: rgba(104, 78, 54, 0.46) !important;
+    background: linear-gradient(180deg, rgba(255, 252, 242, 0.97), rgba(250, 239, 209, 0.93)) !important;
+    box-shadow:
+      0 6px 0 rgba(104, 78, 54, 0.14),
+      0 20px 46px rgba(72, 52, 36, 0.15),
+      inset 0 1px 0 rgba(255,255,255,0.86) !important;
+  }
+
+  .game-primary-button {
+    border-color: #7b6047 !important;
+    background: linear-gradient(180deg, #ffe9a8 0%, #f1c979 54%, #d6a15f 100%) !important;
+    color: #3d2f24 !important;
+    box-shadow: 0 6px 0 #8c6844, 0 12px 22px rgba(104, 78, 54, 0.18) !important;
+  }
+
+  .game-secondary-button {
+    border-color: rgba(96, 122, 85, 0.72) !important;
+    background: linear-gradient(180deg, #edf6d8 0%, #c4d9a3 56%, #9caf86 100%) !important;
+    color: #34452e !important;
+    box-shadow: 0 6px 0 #748b64, 0 12px 22px rgba(70, 95, 55, 0.15) !important;
+  }
+
+  .game-primary-button:hover,
+  .game-secondary-button:hover {
+    filter: none !important;
+    transform: translateY(-1px);
+  }
+
+  section[class*="bg-white"],
+  div[class*="bg-white/"],
+  div[class*="bg-[#fffaf0]"],
+  section[class*="bg-[#f7f1e6]"],
+  section[class*="bg-[#fffaf0]"],
+  article[class*="bg-white"],
+  form[class*="bg-white"] {
+    background: linear-gradient(180deg, rgba(255, 252, 242, 0.97), rgba(250, 241, 219, 0.92)) !important;
+    border-color: rgba(112, 89, 65, 0.34) !important;
+    box-shadow:
+      0 5px 0 rgba(112, 89, 65, 0.09),
+      0 16px 38px rgba(72, 52, 36, 0.11),
+      inset 0 1px 0 rgba(255,255,255,0.78) !important;
+  }
+
+  .title-reward-popup h2,
+  .title-reward-popup p,
+  .title-reward-popup span {
+    text-shadow: none !important;
+  }
+
+  .title-reward-popup svg {
+    filter: drop-shadow(0 1px 0 rgba(255,255,255,0.85));
+  }
+
+  /* 探究數據卡牌清單：保留縮圖，但用較輕量的 hover/陰影，避免滑動或點擊時卡頓。 */
+  .group.relative.aspect-\[6\/5\] {
+    transform: translateZ(0);
+  }
+
+  .group.relative.aspect-\[6\/5\] img {
+    image-rendering: auto;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  @media (pointer: coarse), (max-width: 768px) {
+    .group.relative.aspect-\[6\/5\] {
+      transition-duration: 80ms !important;
+    }
+  }
+}
+
+
+/* Latest UI tuning: softer login tone + keep card-pack CTA alive in device emulation */
+@layer components {
+  .game-auth-shell {
+    background:
+      radial-gradient(circle at 14% 14%, rgba(255,255,255,0.86), transparent 16rem),
+      radial-gradient(circle at 86% 12%, rgba(235,221,177,0.26), transparent 18rem),
+      radial-gradient(circle at 52% 105%, rgba(190,204,172,0.25), transparent 30rem),
+      linear-gradient(145deg, #fff8df 0%, #efe3bd 46%, #ccd9b9 100%) !important;
+  }
+
+  .card-pack-sparkle-button,
+  .card-pack-sparkle-button::before,
+  .card-pack-sparkle-button::after {
+    animation-play-state: running !important;
+  }
+}
+
+@layer components {
+  .game-page-background,
+  .game-auth-shell,
+  .game-adventure-page,
+  #root > div[class*="bg-[#f3efe6]"],
+  main[class*="bg-[#f7efe1]"],
+  div[class*="bg-[#f3efe6]"] {
+    background:
+      radial-gradient(circle at 14% 14%, rgba(255,255,255,0.78), transparent 16rem),
+      radial-gradient(circle at 88% 12%, rgba(239,214,138,0.30), transparent 17rem),
+      radial-gradient(circle at 52% 105%, rgba(156,175,134,0.30), transparent 30rem),
+      linear-gradient(145deg, #fff3cf 0%, #ead7a7 44%, #b5c99a 100%) !important;
+  }
+
+  html,
+  body,
+  #root {
+    background:
+      radial-gradient(circle at 14% 14%, rgba(255,255,255,0.78), transparent 16rem),
+      radial-gradient(circle at 88% 12%, rgba(239,214,138,0.30), transparent 17rem),
+      radial-gradient(circle at 52% 105%, rgba(156,175,134,0.30), transparent 30rem),
+      linear-gradient(145deg, #fff3cf 0%, #ead7a7 44%, #b5c99a 100%) !important;
+  }
+}
+
+@keyframes snapshot-card-glow-flash {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(200, 154, 58, 0), 0 0 0 0 rgba(123, 91, 55, 0);
+    filter: brightness(1);
+    transform: translateY(0) scale(1);
+  }
+  18%, 52% {
+    box-shadow: 0 0 0 7px rgba(200, 154, 58, 0.48), 0 0 34px 12px rgba(123, 91, 55, 0.25);
+    filter: brightness(1.12);
+    transform: translateY(-2px) scale(1.018);
+  }
+  34%, 68% {
+    box-shadow: 0 0 0 2px rgba(200, 154, 58, 0.18), 0 0 10px 2px rgba(123, 91, 55, 0.12);
+    filter: brightness(1.02);
+    transform: translateY(0) scale(1);
+  }
+}
+
+.snapshot-card-glow-flash {
+  animation: snapshot-card-glow-flash 1.35s ease-in-out 1 both;
+  border-radius: 28px;
+}
+

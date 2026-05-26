@@ -1,0 +1,373 @@
+/* --------------------------------------------------------------------------
+   UIUX Rethink Pass 2026-05-16
+   --------------------------------------------------------------------------
+   設計方向：以桌機橫式版為主設計稿，先維持左右分區與整體比例；
+   只有在閱讀空間真的不足時，才切成上下排版。
+--------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    --uiux-canvas-max: 1440px;
+    --uiux-readable-max: 1180px;
+    --uiux-edge: clamp(0.75rem, 2.2vw, 2rem);
+    --uiux-gap: clamp(0.75rem, 1.8vw, 1.5rem);
+    --uiux-card-radius: clamp(22px, 2.4vw, 36px);
+    --uiux-panel-pad: clamp(0.875rem, 1.9vw, 1.5rem);
+    --uiux-title-scale: clamp(0.88, calc(0.72 + 0.25vw), 1);
+  }
+
+  html {
+    overflow-y: auto !important;
+  }
+
+  body,
+  #root {
+    min-width: 320px;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+}
+
+@layer components {
+  .uiux-page-shell,
+  .game-adventure-page,
+  .game-auth-shell {
+    min-height: 100svh;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    padding-left: max(env(safe-area-inset-left), var(--uiux-edge)) !important;
+    padding-right: max(env(safe-area-inset-right), var(--uiux-edge)) !important;
+  }
+
+  .uiux-page-shell > .relative.z-10.mx-auto,
+  .uiux-canvas {
+    width: min(100%, var(--uiux-canvas-max));
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .uiux-surface,
+  .game-stage-card,
+  .game-shell-card,
+  .game-panel,
+  .panel,
+  .card,
+  section[class*="rounded"] {
+    border-radius: var(--uiux-card-radius) !important;
+  }
+
+  .uiux-dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--uiux-gap);
+    align-items: stretch;
+  }
+
+  .uiux-dashboard-grid > section {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .uiux-home-header-grid {
+    display: grid;
+    grid-template-columns: minmax(132px, 0.78fr) minmax(260px, 1.45fr) minmax(202px, 0.92fr);
+    gap: var(--uiux-gap);
+    align-items: center;
+  }
+
+  .uiux-home-header-grid > * {
+    min-width: 0;
+  }
+
+  .uiux-inquiry-stage-grid,
+  .uiux-card-modal-grid {
+    display: grid;
+    gap: var(--uiux-gap);
+    align-items: stretch;
+  }
+
+  .uiux-inquiry-stage-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .uiux-card-modal-grid {
+    grid-template-columns: minmax(0, 1.28fr) minmax(270px, 0.72fr);
+  }
+
+
+  .uiux-card-grid {
+    --uiux-data-card-width: clamp(218px, 22vw, 282px);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: start;
+    gap: clamp(1rem, 2vw, 2rem);
+  }
+
+  .uiux-card-grid > * {
+    flex: 0 0 var(--uiux-data-card-width);
+  }
+
+  .uiux-pack-grid {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(0.85rem, 1.7vw, 1.25rem);
+  }
+
+  .uiux-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(0.45rem, 1vw, 0.75rem);
+  }
+
+  .uiux-toolbar,
+  .uiux-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(0.5rem, 1.2vw, 0.875rem);
+  }
+
+  .uiux-fixed-ratio-panel {
+    min-height: clamp(340px, 48vw, 640px);
+  }
+
+  .uiux-map-chart-stage {
+    min-height: clamp(480px, 48vw, 680px);
+    display: grid;
+    gap: var(--uiux-gap);
+    align-items: stretch;
+  }
+
+  .uiux-page-shell h1 {
+    text-wrap: balance;
+  }
+
+  .uiux-page-shell p,
+  .uiux-page-shell li,
+  .uiux-page-shell label,
+  .uiux-page-shell textarea {
+    line-height: 1.72;
+  }
+
+  .uiux-page-shell img,
+  .uiux-page-shell svg,
+  .uiux-page-shell canvas {
+    max-width: 100%;
+  }
+
+  .uiux-page-shell img {
+    height: auto;
+  }
+
+  .uiux-page-shell .overflow-hidden {
+    min-width: 0;
+  }
+
+  .uiux-page-shell [class*="h-[420px]"],
+  .uiux-page-shell [class*="h-[514px]"],
+  .uiux-page-shell [class*="min-h-[450px]"] {
+    height: auto;
+    min-height: clamp(320px, 42vw, 514px) !important;
+  }
+
+  .uiux-page-shell [class*="min-h-[560px]"] {
+    min-height: clamp(480px, 48vw, 640px) !important;
+  }
+
+  .uiux-page-shell [class*="w-[clamp"] {
+    max-width: 100%;
+  }
+
+  @media (min-width: 701px) and (max-width: 1180px) {
+    :root {
+      --uiux-edge: clamp(0.85rem, 1.9vw, 1.35rem);
+      --uiux-gap: clamp(0.75rem, 1.5vw, 1.1rem);
+    }
+
+    .uiux-page-shell {
+      font-size: clamp(0.88rem, 1.15vw, 1rem);
+    }
+
+    .uiux-home-header-grid {
+      grid-template-columns: minmax(112px, 0.72fr) minmax(220px, 1.46fr) minmax(178px, 0.82fr);
+    }
+
+    .uiux-home-header-grid h1 {
+      font-size: clamp(2.05rem, 4.7vw, 4.1rem) !important;
+      letter-spacing: 0.11em !important;
+    }
+
+    .uiux-card-modal-grid {
+      grid-template-columns: minmax(0, 1.18fr) minmax(238px, 0.82fr);
+    }
+
+    .uiux-pack-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 601px) and (max-width: 900px) {
+    .uiux-dashboard-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: clamp(0.75rem, 1.4vw, 1rem);
+    }
+
+    .uiux-inquiry-stage-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.96fr);
+    }
+
+    .uiux-card-grid {
+      --uiux-data-card-width: clamp(214px, 32vw, 260px);
+    }
+  }
+
+  @media (max-width: 700px) {
+    .uiux-home-header-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .uiux-home-header-grid > :first-child {
+      display: none;
+    }
+  }
+
+  @media (max-width: 600px) {
+    :root {
+      --uiux-edge: clamp(0.7rem, 3vw, 1rem);
+      --uiux-gap: 0.9rem;
+      --uiux-card-radius: 22px;
+    }
+
+    .uiux-dashboard-grid,
+    .uiux-inquiry-stage-grid,
+    .uiux-card-modal-grid,
+    .uiux-map-chart-stage {
+      grid-template-columns: minmax(0, 1fr) !important;
+      grid-template-rows: auto !important;
+    }
+
+    .uiux-pack-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .uiux-card-grid {
+      --uiux-data-card-width: min(100%, 282px);
+      justify-content: center;
+    }
+
+    .uiux-stats-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .uiux-page-shell [class*="grid-cols-2"],
+    .uiux-page-shell [class*="grid-cols-3"],
+    .uiux-page-shell [class*="grid-cols-4"],
+    .uiux-page-shell [class*="grid-cols-5"],
+    .uiux-page-shell [class*="grid-cols-6"] {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .uiux-stats-grid,
+    .uiux-stats-grid[class*="grid-cols-3"] {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    .uiux-page-shell h1 {
+      font-size: clamp(1.75rem, 8.4vw, 2.6rem) !important;
+      letter-spacing: 0.05em !important;
+      white-space: normal !important;
+    }
+
+    .uiux-page-shell [class*="min-h-[520px]"],
+    .uiux-page-shell [class*="min-h-[450px]"],
+    .uiux-page-shell [class*="min-h-[360px]"] {
+      min-height: clamp(260px, 76vw, 420px) !important;
+    }
+  }
+}
+
+@layer components {
+  /* 前導問題頁：以畫面中央作為視覺重心，避免學生在切換選項時覺得內容往上跳。 */
+  .inquiry-intro-shell {
+    align-items: center !important;
+    justify-content: center !important;
+    padding-block: max(env(safe-area-inset-top), clamp(1rem, 3vh, 2.25rem)) max(env(safe-area-inset-bottom), clamp(1rem, 3vh, 2.25rem)) !important;
+  }
+
+  .inquiry-intro-card {
+    overflow: hidden;
+    transition:
+      max-width 280ms ease,
+      max-height 280ms ease,
+      padding 280ms ease,
+      border-radius 280ms ease,
+      box-shadow 280ms ease;
+  }
+
+  .inquiry-intro-card textarea,
+  .inquiry-intro-card input {
+    text-align: left;
+  }
+
+  .inquiry-intro-choice-button {
+    transform-origin: center center;
+    transition:
+      background-color 220ms ease,
+      border-color 220ms ease,
+      box-shadow 260ms ease,
+      filter 220ms ease,
+      min-height 260ms ease,
+      padding 260ms ease !important;
+  }
+
+  .inquiry-intro-card [class*="rounded-2xl"] {
+    transform-origin: top center;
+  }
+
+  @media (max-height: 680px) {
+    .inquiry-intro-shell {
+      align-items: flex-start !important;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .inquiry-intro-card {
+      padding: clamp(1.15rem, 5vw, 1.75rem) !important;
+    }
+  }
+
+  @media (orientation: landscape) {
+    .inquiry-intro-shell {
+      height: 100svh;
+      min-height: 100svh !important;
+      overflow: hidden !important;
+      padding-block: max(env(safe-area-inset-top), clamp(0.5rem, 2vh, 1rem)) max(env(safe-area-inset-bottom), clamp(0.5rem, 2vh, 1rem)) !important;
+    }
+
+    .inquiry-intro-card {
+      max-height: calc(100svh - max(env(safe-area-inset-top), clamp(0.5rem, 2vh, 1rem)) - max(env(safe-area-inset-bottom), clamp(0.5rem, 2vh, 1rem)));
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: clamp(1rem, 3vh, 1.75rem) !important;
+      scrollbar-gutter: stable;
+    }
+
+    .inquiry-intro-card h2 {
+      margin-bottom: clamp(0.55rem, 1.6vh, 1rem) !important;
+      font-size: clamp(1.25rem, 4vh, 1.5rem) !important;
+      line-height: 1.2 !important;
+    }
+
+    .inquiry-intro-card textarea {
+      min-height: clamp(4.25rem, 16svh, 4.75rem) !important;
+    }
+
+    .inquiry-intro-choice-button {
+      min-height: clamp(3rem, 10vh, 3.625rem) !important;
+      padding-block: clamp(0.65rem, 2.4vh, 1rem) !important;
+    }
+  }
+}

@@ -1,0 +1,28 @@
+@import "./font.css";
+@import "./responsive-safety.css";
+@import "./game-theme.css";
+@import "./readability.css";
+@import "./pastel-theme.css";
+@import "./responsive-layout.css";
+@import "./desktop-layout.css";
+
+/* iPad / PWA friendly immersive mode.
+   This intentionally avoids the browser Fullscreen API on Apple touch devices,
+   because focusing text inputs can force Safari to leave fullscreen. */
+.app-css-immersive-mode {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  min-height: 100dvh !important;
+  height: 100dvh !important;
+  z-index: 9999 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  padding-top: max(env(safe-area-inset-top), 1rem) !important;
+  padding-right: max(env(safe-area-inset-right), 1rem) !important;
+  padding-bottom: max(env(safe-area-inset-bottom), 1rem) !important;
+  padding-left: max(env(safe-area-inset-left), 1rem) !important;
+}

@@ -1,0 +1,327 @@
+/* --------------------------------------------------------------------------
+   Game Redesign Layer: Stone Leopard Detective Adventure
+   -------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    --game-ink: #2e2118;
+    --game-brown: #7a4f2a;
+    --game-brown-dark: #4a2e1b;
+    --game-gold: #f2c14e;
+    --game-amber: #f6df9f;
+    --game-leaf: #6f8b58;
+    --game-leaf-dark: #375235;
+    --game-mint: #cfe8bd;
+    --game-red: #b94735;
+    --game-sky: #7bb9c8;
+    --game-paper: #fff4d9;
+    --game-card: rgba(255, 248, 226, 0.92);
+    --game-shadow: 0 24px 60px rgba(46, 33, 24, 0.22);
+    color: var(--game-ink);
+    background:
+      radial-gradient(circle at 12% 8%, rgba(255, 235, 145, 0.55), transparent 24rem),
+      radial-gradient(circle at 88% 12%, rgba(148, 190, 119, 0.5), transparent 22rem),
+      radial-gradient(circle at 50% 95%, rgba(120, 84, 48, 0.2), transparent 28rem),
+      linear-gradient(145deg, #ffedbd 0%, #e8d29d 38%, #adc17f 100%);
+  }
+
+  html,
+  body,
+  #root {
+    background:
+      radial-gradient(circle at 16% 10%, rgba(255, 240, 158, 0.8), transparent 22rem),
+      radial-gradient(circle at 84% 16%, rgba(166, 204, 128, 0.55), transparent 26rem),
+      radial-gradient(circle at 40% 110%, rgba(112, 72, 42, 0.3), transparent 34rem),
+      linear-gradient(145deg, #ffe8a8 0%, #e8cf91 34%, #95b86f 100%) !important;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      linear-gradient(115deg, rgba(74, 46, 27, 0.08) 0 2px, transparent 2px 42px),
+      linear-gradient(25deg, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px 34px),
+      radial-gradient(circle at 20% 24%, rgba(74, 46, 27, 0.08) 0 5px, transparent 6px),
+      radial-gradient(circle at 74% 18%, rgba(74, 46, 27, 0.07) 0 4px, transparent 5px),
+      radial-gradient(circle at 58% 70%, rgba(74, 46, 27, 0.07) 0 6px, transparent 7px);
+    background-size: 180px 180px, 120px 120px, 180px 180px, 220px 220px, 260px 260px;
+    opacity: 0.75;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: auto -10vw -18vh -10vw;
+    z-index: -1;
+    height: 42vh;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 18% 78%, #5e7f3e 0 20%, transparent 20.5%),
+      radial-gradient(ellipse at 42% 72%, #71984d 0 24%, transparent 24.5%),
+      radial-gradient(ellipse at 70% 76%, #557538 0 22%, transparent 22.5%),
+      linear-gradient(180deg, transparent 0%, rgba(53, 77, 38, 0.62) 54%, rgba(43, 65, 30, 0.86) 100%);
+    filter: blur(0.2px);
+  }
+
+  ::selection {
+    background: rgba(242, 193, 78, 0.55);
+    color: #2e2118;
+  }
+}
+
+@layer components {
+  .game-auth-shell,
+  .game-adventure-page {
+    position: relative;
+    overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+    color: var(--game-ink);
+    background:
+      radial-gradient(circle at 14% 14%, rgba(255,255,255,0.72), transparent 16rem),
+      radial-gradient(circle at 88% 12%, rgba(242,193,78,0.38), transparent 17rem),
+      radial-gradient(circle at 52% 105%, rgba(51,82,46,0.28), transparent 30rem),
+      linear-gradient(145deg, #ffe6a7 0%, #e1bd74 42%, #8fb36c 100%) !important;
+  }
+
+  .game-auth-shell::before,
+  .game-adventure-page::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 11% 20%, rgba(74,46,27,0.13) 0 5px, transparent 6px),
+      radial-gradient(circle at 16% 23%, rgba(74,46,27,0.09) 0 2px, transparent 3px),
+      radial-gradient(circle at 84% 24%, rgba(74,46,27,0.1) 0 4px, transparent 5px),
+      linear-gradient(100deg, rgba(255,255,255,0.24) 0 1px, transparent 1px 58px);
+    background-size: 210px 210px, 210px 210px, 260px 260px, 180px 180px;
+    opacity: 0.9;
+  }
+
+  .game-shell-card,
+  .game-panel,
+  .game-stage-card {
+    border: 3px solid rgba(74, 46, 27, 0.62) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 250, 226, 0.96), rgba(255, 237, 183, 0.91)) !important;
+    box-shadow:
+      0 8px 0 rgba(74, 46, 27, 0.28),
+      0 26px 70px rgba(46, 33, 24, 0.24),
+      inset 0 1px 0 rgba(255,255,255,0.82) !important;
+  }
+
+  .game-title-text {
+    color: #2e2118;
+    text-shadow:
+      0 3px 0 rgba(255, 248, 226, 0.85),
+      0 7px 0 rgba(122, 79, 42, 0.16),
+      0 18px 30px rgba(46, 33, 24, 0.2);
+  }
+  .game-title-text.game-major-title {
+    color: #2e2118;
+    text-shadow:
+      0.018em 0 0 currentColor,
+      -0.018em 0 0 currentColor,
+      0 0.018em 0 currentColor,
+      0 3px 0 rgba(255, 248, 226, 0.85),
+      0 7px 0 rgba(122, 79, 42, 0.16),
+      0 18px 30px rgba(46, 33, 24, 0.2);
+  }
+
+
+  .game-pill {
+    border: 2px solid rgba(74, 46, 27, 0.55) !important;
+    background: linear-gradient(180deg, #fff9df, #f4cc68) !important;
+    color: #4a2e1b !important;
+    box-shadow: 0 5px 0 rgba(74, 46, 27, 0.22), inset 0 1px 0 rgba(255,255,255,0.75) !important;
+  }
+
+  .game-primary-button {
+    border: 3px solid #4a2e1b !important;
+    background: linear-gradient(180deg, #ffd96e 0%, #f2a93b 48%, #bd6f2d 100%) !important;
+    color: #2e2118 !important;
+    box-shadow: 0 8px 0 #693d22, 0 16px 28px rgba(74, 46, 27, 0.28) !important;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+  }
+
+  .game-primary-button:hover {
+    transform: translateY(-2px) scale(1.01);
+    filter: saturate(1.08) brightness(1.04);
+  }
+
+  .game-secondary-button {
+    border: 3px solid rgba(55, 82, 53, 0.86) !important;
+    background: linear-gradient(180deg, #e7f5ca 0%, #a7ca70 52%, #6f8b58 100%) !important;
+    color: #26391f !important;
+    box-shadow: 0 7px 0 #425b34, 0 14px 24px rgba(45, 65, 33, 0.25) !important;
+  }
+
+  .game-input {
+    border: 3px solid rgba(74, 46, 27, 0.58) !important;
+    background: rgba(255, 253, 239, 0.96) !important;
+    color: #2e2118 !important;
+    box-shadow: inset 0 3px 0 rgba(74, 46, 27, 0.08), 0 4px 0 rgba(74, 46, 27, 0.12) !important;
+  }
+
+  .game-input:focus {
+    border-color: #f2a93b !important;
+    outline: 4px solid rgba(242, 193, 78, 0.22) !important;
+  }
+
+  /* Re-skin existing platform-like pages without changing component logic. */
+  #root > div[class*="bg-[#f3efe6]"],
+  main[class*="bg-[#f7efe1]"],
+  div[class*="bg-[#f3efe6]"] {
+    background:
+      radial-gradient(circle at 14% 10%, rgba(255, 255, 255, 0.72), transparent 16rem),
+      radial-gradient(circle at 88% 12%, rgba(242, 193, 78, 0.34), transparent 18rem),
+      linear-gradient(145deg, #ffe6a7 0%, #dfbd78 42%, #8fb36c 100%) !important;
+  }
+
+  section[class*="bg-white"],
+  div[class*="bg-white/"],
+  div[class*="bg-[#fffaf0]"],
+  section[class*="bg-[#f7f1e6]"],
+  section[class*="bg-[#fffaf0]"],
+  article[class*="bg-white"],
+  form[class*="bg-white"] {
+    background:
+      linear-gradient(180deg, rgba(255, 250, 226, 0.96), rgba(255, 239, 194, 0.9)) !important;
+    border-color: rgba(74, 46, 27, 0.48) !important;
+    box-shadow:
+      0 7px 0 rgba(74, 46, 27, 0.18),
+      0 24px 54px rgba(46, 33, 24, 0.18),
+      inset 0 1px 0 rgba(255,255,255,0.75) !important;
+  }
+
+  button:not(:disabled) {
+    transition: transform 180ms ease, filter 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  }
+
+  button[class*="bg-[#8b5e34]"],
+  button[class*="bg-stone-800"],
+  button[class*="bg-[#6d5e49]"],
+  button[class*="bg-[#3f2f1c]"] {
+    border-color: #4a2e1b !important;
+    background: linear-gradient(180deg, #ffd96e, #f2a93b 52%, #bd6f2d) !important;
+    color: #2e2118 !important;
+    box-shadow: 0 7px 0 #693d22, 0 14px 26px rgba(74, 46, 27, 0.26) !important;
+  }
+
+  button[class*="bg-[#fff0bd]"],
+  button[class*="from-[#fff7c7]"] {
+    border-color: #b6792d !important;
+    background: linear-gradient(180deg, #fff8cb, #ffd86a 55%, #e99b38) !important;
+    color: #4a2e1b !important;
+  }
+
+  input,
+  textarea,
+  select {
+    border-radius: 18px !important;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: 0.06em;
+  }
+
+  .game-floating-compass {
+    position: absolute;
+    right: clamp(1rem, 4vw, 4rem);
+    top: clamp(1rem, 5vw, 4rem);
+    width: clamp(84px, 12vw, 150px);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    border: 4px solid rgba(74,46,27,0.45);
+    background:
+      conic-gradient(from 45deg, rgba(242,193,78,0.65), rgba(255,255,255,0.72), rgba(111,139,88,0.55), rgba(242,193,78,0.65));
+    box-shadow: 0 18px 38px rgba(46,33,24,0.2), inset 0 0 0 10px rgba(255,249,223,0.65);
+    opacity: 0.75;
+    animation: game-float 5.5s ease-in-out infinite;
+  }
+
+  .game-floating-compass::before {
+    content: "✦";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #7a4f2a;
+    font-size: clamp(2rem, 5vw, 4.5rem);
+    text-shadow: 0 2px 0 rgba(255,255,255,0.65);
+  }
+
+  .game-leopard-token {
+    position: absolute;
+    left: clamp(1rem, 5vw, 5rem);
+    bottom: clamp(1rem, 5vw, 4rem);
+    display: grid;
+    place-items: center;
+    width: clamp(88px, 13vw, 160px);
+    aspect-ratio: 1;
+    border-radius: 34% 66% 43% 57% / 53% 40% 60% 47%;
+    border: 4px solid rgba(74,46,27,0.42);
+    background:
+      radial-gradient(circle at 34% 34%, #4a2e1b 0 7%, transparent 8%),
+      radial-gradient(circle at 66% 43%, #4a2e1b 0 6%, transparent 7%),
+      radial-gradient(circle at 48% 67%, #4a2e1b 0 8%, transparent 9%),
+      linear-gradient(145deg, #f0b85a, #c77a36);
+    box-shadow: 0 18px 36px rgba(46,33,24,0.24), inset 0 3px 0 rgba(255,255,255,0.35);
+    animation: game-float 6.2s ease-in-out infinite reverse;
+  }
+
+  .game-leopard-token::after {
+    content: "石虎偵探";
+    transform: rotate(-10deg);
+    border-radius: 999px;
+    background: rgba(255,250,226,0.9);
+    padding: 0.35rem 0.7rem;
+    color: #4a2e1b;
+    font-weight: 900;
+    font-size: clamp(0.72rem, 1.4vw, 1rem);
+    box-shadow: 0 4px 0 rgba(74,46,27,0.18);
+  }
+}
+
+
+@layer utilities {
+  .game-smooth-layer {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    contain: layout paint;
+  }
+}
+
+@keyframes soft-screen-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes game-float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+@keyframes game-shine-run {
+  0% { transform: translateX(-140%) rotate(12deg); }
+  100% { transform: translateX(160%) rotate(12deg); }
+}
+

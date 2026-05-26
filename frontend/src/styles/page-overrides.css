@@ -1,0 +1,277 @@
+/* Auth page centering fix: decorative elements must not become flex items. */
+@layer components {
+  .game-auth-shell {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .game-auth-shell > .game-floating-compass,
+  .game-auth-shell > .game-leopard-token {
+    position: absolute !important;
+    flex: none !important;
+    pointer-events: none;
+  }
+
+  .game-auth-shell > .game-shell-card {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   平板 / 電腦實測修正：底部彈幕輸入列與首頁地圖預覽
+   -------------------------------------------------------------------------- */
+@layer components {
+  /* 登入後所有主要頁面保留底部安全距離，避免固定的彈幕 / coin 輸入列蓋到內容。 */
+  .game-adventure-page,
+  .uiux-page-shell.game-adventure-page {
+    padding-bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 5.75rem) !important;
+  }
+
+  /* 平板與桌機使用時，彈幕輸入列維持浮動但不要貼得太底。 */
+  .barrage-composer {
+    bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  @media (min-width: 641px) and (max-width: 1180px) {
+    .barrage-composer {
+      width: min(72vw, 500px) !important;
+    }
+  }
+
+  /* 平板直向閱讀空間不足時，首頁任務卡改上下排列，避免兩張大卡硬擠造成地圖太小。 */
+  @media (min-width: 601px) and (max-width: 900px) and (orientation: portrait) {
+    .uiux-dashboard-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .uiux-dashboard-grid > section {
+      min-height: auto !important;
+    }
+  }
+
+  /* 首頁地圖預覽：保留底部操作區空間，讓地圖、頁籤與圖例不要互相壓在一起。 */
+  .uiux-home-map-stage {
+    min-height: clamp(500px, 52vw, 640px) !important;
+  }
+
+  .uiux-home-map-slide {
+    padding-top: 2.25rem;
+    padding-bottom: 8.75rem;
+  }
+
+  .uiux-home-map-svg {
+    height: 100% !important;
+    max-height: calc(100% - 0.5rem);
+  }
+
+  .uiux-home-map-pager {
+    bottom: 4.75rem !important;
+  }
+
+  .uiux-home-map-legend {
+    bottom: 0.85rem !important;
+  }
+
+  @media (min-width: 901px) {
+    .uiux-home-map-stage {
+      min-height: clamp(514px, 42vw, 620px) !important;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .uiux-home-map-stage {
+      min-height: clamp(430px, 90vw, 540px) !important;
+    }
+
+    .uiux-home-map-slide {
+      padding-top: 2rem;
+      padding-bottom: 9.25rem;
+    }
+
+    .uiux-home-map-pager {
+      bottom: 5.05rem !important;
+      width: min(94%, 520px) !important;
+    }
+
+    .uiux-home-map-legend {
+      width: 92% !important;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   第二輪實測修正：以平板 / 電腦為主，讓主要任務區不被彈幕列或大卡片壓縮
+   -------------------------------------------------------------------------- */
+@layer components {
+  /* 登入頁：平板橫向維持左右並排，避免登入欄被大標題推到很下面。 */
+  @media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
+    .game-auth-shell {
+      align-items: center !important;
+      padding-top: max(env(safe-area-inset-top), 1rem) !important;
+      padding-bottom: max(env(safe-area-inset-bottom), 1rem) !important;
+    }
+
+    .game-auth-content-grid {
+      grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr) !important;
+      align-items: stretch !important;
+      gap: clamp(1rem, 1.8vw, 1.4rem) !important;
+    }
+
+    .game-auth-hero {
+      min-height: clamp(390px, 72vh, 500px) !important;
+      padding: clamp(1.25rem, 2vw, 1.75rem) !important;
+    }
+
+    .game-auth-hero .game-major-title {
+      margin-top: 1.5rem !important;
+      font-size: clamp(3.1rem, 6vw, 4.7rem) !important;
+    }
+
+    .game-auth-panel {
+      min-height: auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: center !important;
+    }
+  }
+
+  /* 登入頁：平板直向先看到登入表單，故事介紹往下放，課堂登入更快。 */
+  @media (min-width: 701px) and (max-width: 1023px) and (orientation: portrait) {
+    .game-auth-shell {
+      align-items: flex-start !important;
+      padding-top: max(env(safe-area-inset-top), 1rem) !important;
+      padding-bottom: max(env(safe-area-inset-bottom), 1rem) !important;
+    }
+
+    .game-auth-content-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+      gap: clamp(0.9rem, 1.8vw, 1.2rem) !important;
+    }
+
+    .game-auth-panel {
+      order: 1 !important;
+    }
+
+    .game-auth-hero {
+      order: 2 !important;
+      min-height: auto !important;
+      padding: clamp(1rem, 2vw, 1.5rem) !important;
+    }
+
+    .game-auth-hero .game-major-title {
+      margin-top: 1.25rem !important;
+      font-size: clamp(2.7rem, 7vw, 4.2rem) !important;
+    }
+
+    .game-auth-hero p {
+      margin-top: 0.85rem !important;
+      padding: 0.85rem 1rem !important;
+      line-height: 1.65 !important;
+    }
+  }
+
+  /* 首頁：平板橫向仍可雙欄，但任務二不要被擠到過窄。 */
+  @media (min-width: 901px) and (max-width: 1180px) {
+    .uiux-dashboard-grid {
+      grid-template-columns: minmax(0, 0.96fr) minmax(420px, 1.04fr) !important;
+    }
+  }
+
+  /* 首頁地圖：平板直向單欄時給足高度；橫向時控制地圖不要碰到底部圖例。 */
+  @media (min-width: 701px) and (max-width: 900px) and (orientation: portrait) {
+    .uiux-home-map-stage {
+      min-height: clamp(560px, 78vw, 700px) !important;
+    }
+  }
+
+  @media (min-width: 901px) and (max-width: 1180px) {
+    .uiux-home-map-stage {
+      min-height: clamp(500px, 48vw, 610px) !important;
+    }
+
+    .uiux-home-map-slide {
+      padding-top: 2rem !important;
+      padding-bottom: 9rem !important;
+    }
+  }
+
+  /* 彈幕輸入列：平板與電腦移到右下角，避免擋住首頁中央、任務下一步與地圖操作。 */
+  @media (min-width: 701px) {
+    .barrage-composer {
+      left: 50% !important;
+      right: auto !important;
+      bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+      width: min(88vw, 500px) !important;
+      min-width: 0 !important;
+      transform: translateX(-50%) !important;
+    }
+  }
+
+  @media (min-width: 701px) and (max-width: 900px) {
+    .barrage-composer {
+      width: min(88vw, 500px) !important;
+      min-width: 0 !important;
+    }
+  }
+
+  /* 內容保留右下角浮動列空間，避免頁面底部最後一排按鈕被蓋。 */
+  @media (min-width: 701px) {
+    .game-adventure-page,
+    .uiux-page-shell.game-adventure-page {
+      padding-bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 6.75rem) !important;
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   第三輪實測修正：保留彈幕輸入條常駐，但避開首頁任務二地圖與主要內容
+   -------------------------------------------------------------------------- */
+@layer components {
+  /* 桌機與平板橫向：輸入條改停在左下角，讓右側任務二地圖不再被壓住。 */
+  @media (min-width: 901px) {
+    .barrage-composer {
+      left: 50% !important;
+      right: auto !important;
+      bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+      width: min(88vw, 500px) !important;
+      min-width: 0 !important;
+      transform: translateX(-50%) !important;
+    }
+  }
+
+  /* 平板直向：仍維持可見輸入條，但用底部安全區讓內容能滑出輸入條遮擋範圍。 */
+  @media (min-width: 701px) and (max-width: 900px) and (orientation: portrait) {
+    .barrage-composer {
+      left: 50% !important;
+      right: auto !important;
+      bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+      width: min(82vw, 520px) !important;
+      min-width: 0 !important;
+      transform: translateX(-50%) !important;
+    }
+
+    .game-adventure-page,
+    .uiux-page-shell.game-adventure-page {
+      padding-bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 8.5rem) !important;
+    }
+  }
+
+  /* 手機只是備援：不要太寬造成橫向溢出。 */
+  @media (max-width: 700px) {
+    .barrage-composer {
+      left: 50% !important;
+      right: auto !important;
+      bottom: max(0.75rem, env(safe-area-inset-bottom)) !important;
+      width: min(94vw, 520px) !important;
+      min-width: 0 !important;
+      transform: translateX(-50%) !important;
+    }
+  }
+}

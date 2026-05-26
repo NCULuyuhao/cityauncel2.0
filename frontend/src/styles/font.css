@@ -1,0 +1,14 @@
+/* --------------------------------------------------------------------------
+   石虎系統：jf open 粉圓 2.1 本機字體設定（無 Google Fonts / 無外部請求）
+   --------------------------------------------------------------------------
+   字體檔放置位置：frontend/public/fonts/jf-openhuninn-2.1.ttf
+   直接由專案 public 目錄載入，讓繁體中文字完整套用圓潤 QQ 字體。
+*/
+@font-face {
+  font-family: "CityauncelRounded";
+  src: url("/fonts/jf-openhuninn-2.1.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+

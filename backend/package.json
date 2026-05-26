@@ -1,0 +1,27 @@
+{
+  "name": "cityauncel4-backend",
+  "version": "4.0.0",
+  "description": "",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/db.js && node --check src/routes/inquiry.routes.js && node --check src/routes/barrage.routes.js && node --check src/routes/auth.routes.js && node --check src/routes/gameStatus.routes.js && node --check src/routes/map.routes.js && node --check src/routes/voting.routes.js && node --check src/routes/teacher.routes.js && node --check src/routes/ai.routes.js && node --check src/routes/groupCardPack.routes.js && node --check src/services/realtime.js && node --check src/services/activityLog.js && node --check src/services/decisioncards.js && node --check src/routes/upload.routes.js && node --check src/routes/activity.routes.js && node --check src/services/gameSettings.js && node --check src/services/users.js && node --check src/services/schemaUtils.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.22.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

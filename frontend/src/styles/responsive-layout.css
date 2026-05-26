@@ -1,0 +1,302 @@
+/* --------------------------------------------------------------------------
+   UIUX Responsive Layout Pass 2
+   --------------------------------------------------------------------------
+   目標：
+   1. 所有主要頁面只鎖左右溢出，不再鎖住上下滾動。
+   2. 大卡片、彈窗、資料清單在手機 / 平板 / 桌機都有穩定閱讀寬度。
+   3. 降低 hover 位移、強動畫與 backdrop blur，減少畫面彈跳與重繪卡頓。
+   4. 表格、圖卡、SVG、長文字都不撐爆外層容器。
+*/
+@layer base {
+  html {
+    overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  body,
+  #root {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body {
+    overscroll-behavior-y: auto;
+  }
+
+  #root {
+    isolation: isolate;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .uiux-page-shell,
+  .game-adventure-page,
+  .game-auth-shell {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    padding-left: max(env(safe-area-inset-left), clamp(0.75rem, 2.4vw, 1.5rem));
+    padding-right: max(env(safe-area-inset-right), clamp(0.75rem, 2.4vw, 1.5rem));
+    scroll-behavior: smooth;
+  }
+
+  .game-adventure-page::before,
+  .game-auth-shell::before {
+    position: fixed;
+    z-index: 0;
+  }
+
+  .game-adventure-page > *,
+  .game-auth-shell > * {
+    position: relative;
+  }
+
+  .game-stage-card,
+  .game-shell-card,
+  .game-panel,
+  section,
+  article,
+  form {
+    max-width: 100%;
+  }
+
+  .game-stage-card,
+  .game-shell-card,
+  .game-panel {
+    border-radius: clamp(22px, 3.2vw, 38px) !important;
+  }
+
+  /* 主要內容區：桌機不過寬、平板留舒服邊距、手機單欄閱讀。 */
+  .uiux-page-shell > .relative.z-10.mx-auto,
+  .uiux-page-shell > .relative.z-10.mx-auto.max-w-7xl,
+  .uiux-page-shell > .relative.z-10.mx-auto.max-w-6xl,
+  .uiux-page-shell > .relative.z-10.mx-auto.max-w-5xl {
+    width: min(100%, 1280px);
+  }
+
+  header.game-stage-card,
+  .uiux-page-shell main,
+  .uiux-page-shell section,
+  .uiux-page-shell [class*="max-w-7xl"],
+  .uiux-page-shell [class*="max-w-6xl"],
+  .uiux-page-shell [class*="max-w-5xl"] {
+    min-width: 0;
+  }
+
+  /* 表單與按鈕在小螢幕不再互相擠壓。 */
+  .uiux-page-shell button,
+  .uiux-page-shell input,
+  .uiux-page-shell textarea,
+  .uiux-page-shell select {
+    min-width: 0;
+  }
+
+  .uiux-page-shell textarea {
+    resize: vertical;
+  }
+
+  /* 長文字、長標題與學生紀錄可以正常換行。 */
+  .uiux-page-shell p,
+  .uiux-page-shell span,
+  .uiux-page-shell h1,
+  .uiux-page-shell h2,
+  .uiux-page-shell h3,
+  .uiux-page-shell h4,
+  .uiux-page-shell label,
+  .uiux-page-shell button,
+  .uiux-page-shell td,
+  .uiux-page-shell th {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* 資料卡、證據卡、清單卡不因內容過多撐爆格線。 */
+  .uiux-page-shell .grid,
+  .uiux-page-shell .flex {
+    min-width: 0;
+  }
+
+  .uiux-page-shell .grid > *,
+  .uiux-page-shell .flex > * {
+    min-width: 0;
+  }
+
+  /* 圖表、地圖、SVG 與圖片統一限制在容器內。 */
+  .uiux-page-shell img,
+  .uiux-page-shell svg,
+  .uiux-page-shell canvas,
+  .uiux-page-shell video {
+    max-width: 100%;
+  }
+
+  .uiux-page-shell img {
+    height: auto;
+  }
+
+  .miaoli-district-selector-map,
+  .water-rpi-river-map,
+  [class*="map" i],
+  [class*="chart" i] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* 彈窗：任何裝置都可以滾動，不會頂到螢幕外。 */
+  .uiux-page-shell [class*="fixed inset-0"],
+  [class*="fixed inset-0"] {
+    overscroll-behavior: contain;
+  }
+
+  [class*="fixed inset-0"] > [class*="max-h"],
+  [class*="fixed inset-0"] > div[class*="rounded"] {
+    max-width: min(100%, calc(100vw - 1rem));
+  }
+
+  /* 卡包頁拖拉區只吃水平拖曳，不攔截一般垂直滾動。 */
+  .uiux-page-shell [class*="touch-none"] {
+    touch-action: pan-y pinch-zoom;
+  }
+
+  /* 保留卡包切開的水平拖曳手感。 */
+  .uiux-page-shell [aria-label*="左右滑動"],
+  .uiux-page-shell [aria-label*="卡包"] {
+    touch-action: none;
+  }
+
+  /* 減少 hover 位移：讓畫面不要一直彈、跳、移。 */
+  .uiux-page-shell button:hover,
+  .uiux-page-shell [role="button"]:hover,
+  .uiux-page-shell a:hover,
+  .game-primary-button:hover,
+  .game-secondary-button:hover {
+    transform: none !important;
+  }
+
+  .uiux-page-shell button:active,
+  .uiux-page-shell [role="button"]:active,
+  .game-primary-button:active,
+  .game-secondary-button:active {
+    transform: translateY(1px) !important;
+  }
+
+  /* 降低大面積陰影造成的卡頓，視覺仍保留浮起感。 */
+  @media (max-width: 900px), (pointer: coarse) {
+    .game-shell-card,
+    .game-panel,
+    .game-stage-card,
+    section[class*="shadow"],
+    div[class*="shadow"] {
+      box-shadow:
+        0 4px 0 rgba(112, 89, 65, 0.08),
+        0 12px 26px rgba(72, 52, 36, 0.10) !important;
+    }
+  }
+
+  /* 手機與窄平板：統一為單欄、降低最小高度，避免一頁被硬塞。 */
+  @media (max-width: 600px) {
+    .uiux-page-shell {
+      padding-top: max(env(safe-area-inset-top), 0.75rem);
+      padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+    }
+
+    .game-auth-shell,
+    .game-adventure-page {
+      min-height: 100svh;
+    }
+
+    .game-shell-card,
+    .game-panel,
+    .game-stage-card {
+      border-width: 2px !important;
+      border-radius: 24px !important;
+    }
+
+    .uiux-page-shell h1 {
+      font-size: clamp(1.65rem, 8vw, 3rem) !important;
+      line-height: 1.12 !important;
+      letter-spacing: 0.04em !important;
+    }
+
+    .uiux-page-shell h2 {
+      font-size: clamp(1.25rem, 5.8vw, 2rem) !important;
+      line-height: 1.18 !important;
+    }
+
+    .uiux-page-shell p,
+    .uiux-page-shell label,
+    .uiux-page-shell button,
+    .uiux-page-shell input,
+    .uiux-page-shell textarea {
+      letter-spacing: 0.03em !important;
+    }
+
+    .uiux-page-shell [class*="grid-cols-2"],
+    .uiux-page-shell [class*="grid-cols-3"],
+    .uiux-page-shell [class*="grid-cols-4"],
+    .uiux-page-shell [class*="grid-cols-5"],
+    .uiux-page-shell [class*="grid-cols-6"] {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .uiux-page-shell [class*="min-h-[520px]"] {
+      min-height: 360px !important;
+    }
+
+    .uiux-page-shell [class*="min-h-[450px]"] {
+      min-height: 320px !important;
+    }
+
+    .uiux-page-shell [class*="min-h-[360px]"] {
+      min-height: 260px !important;
+    }
+
+    .uiux-page-shell [class*="max-h-[92svh]"],
+    .uiux-page-shell [class*="max-h-[90svh]"],
+    .uiux-page-shell [class*="max-h-[78svh]"] {
+      max-height: calc(100svh - 1rem) !important;
+    }
+
+    .uiux-page-shell [class*="p-6"] {
+      padding: clamp(0.875rem, 3vw, 1.25rem);
+    }
+  }
+
+  /* 平板橫式：保留雙欄，但避免太擠與卡片高度爆掉。 */
+  @media (min-width: 769px) and (max-width: 1180px) {
+    .uiux-page-shell {
+      padding-left: clamp(1rem, 2.4vw, 1.75rem);
+      padding-right: clamp(1rem, 2.4vw, 1.75rem);
+    }
+
+    .uiux-page-shell h1 {
+      font-size: clamp(2rem, 5vw, 4.2rem) !important;
+    }
+
+    .uiux-page-shell [class*="lg:grid-cols"] {
+      gap: clamp(1rem, 2.2vw, 1.5rem) !important;
+    }
+  }
+
+  /* 桌機：內容集中，不讓閱讀視線被拉太寬。 */
+  @media (min-width: 1181px) {
+    .uiux-page-shell {
+      padding-left: clamp(1.5rem, 3vw, 2.75rem);
+      padding-right: clamp(1.5rem, 3vw, 2.75rem);
+    }
+  }
+}
+
+@layer utilities {
+  .uiux-scroll-area {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
