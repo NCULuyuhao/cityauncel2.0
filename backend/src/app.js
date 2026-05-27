@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：建立 Express 應用程式，集中設定 CORS、rate limit、靜態檔、API 路由與錯誤處理。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
@@ -39,6 +45,7 @@ const {
   ensureLearningDashboardIndexes,
 } = require("./services/schemaUtils");
 
+// 建立單一 Express app，後續 middleware 與 routes 都掛在這個實例上。
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
 const allowedCorsOrigins = String(process.env.CORS_ORIGIN || "")
@@ -66,6 +73,7 @@ app.set("trust proxy", 1);
 app.use(cors({
   origin: allowedCorsOrigins.length > 0 ? allowedCorsOrigins : isProduction ? false : true,
 }));
+// 調查書與快照可能包含較大的 JSON payload，因此 body limit 由環境變數控制。
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "12mb" }));
 
 const authRateLimiter = createApiRateLimiter({

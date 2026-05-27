@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：首頁功能元件 TitleCollection，負責任務入口、稱號或首頁區塊呈現。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { forwardRef, type ReactNode } from "react";
 
 export const TitleCollection = forwardRef<HTMLElement, { children: ReactNode }>(

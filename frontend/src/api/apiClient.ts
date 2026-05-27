@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端 API 共用工具，負責 base URL、授權 header、媒體路徑與 JSON 請求處理。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
 export function authHeaders(token: string): HeadersInit {
@@ -11,6 +17,7 @@ export function apiUrl(path: string): string {
   return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+// 後端保存的 /uploads 相對路徑會在這裡轉成完整可顯示網址。
 export function mediaUrl(url: unknown): string {
   if (typeof url !== "string") return "";
   const value = url.trim();
@@ -38,6 +45,7 @@ export function persistableMediaPath(url: unknown): string {
   return value;
 }
 
+// 所有前端 API 請求共用逾時、錯誤訊息與 JSON 解析規則。
 export async function requestJson<T>(
   path: string,
   options: RequestInit = {},

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：後端 decisioncards 共用服務，集中處理可被多個 API 重用的資料庫或業務邏輯。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, tableHasColumn }) {
   const CARD_COLUMNS = ["selected_card_id_1", "selected_card_id_2", "selected_card_id_3"];
 

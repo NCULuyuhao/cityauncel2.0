@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：探究快照模組 snapshotCapture，負責把互動資料轉成可保存與可引用的資料卡快照。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { toCanvas } from "html-to-image";
 
 const SNAPSHOT_SAFE_BACKGROUND_COLOR = "rgb(255, 250, 240)";

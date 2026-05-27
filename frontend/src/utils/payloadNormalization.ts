@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端工具函式 payloadNormalization，提供跨功能重用的資料轉換或環境判斷。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 export type ActivityLogPayloadLike = {
   eventType: string;
   eventLabel?: string;

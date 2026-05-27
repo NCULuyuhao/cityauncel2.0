@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：後端 map 功能 API 路由，負責接收請求、檢查參數並回傳 JSON 結果。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 const express = require("express");
 
 const pool = require("../db");

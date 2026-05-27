@@ -1,3 +1,7 @@
+-- CityAuncel maintainability notes
+-- 檔案用途：MySQL schema 腳本 cityauncel_database_rebuild_clean.sql，定義資料表、索引或資料庫重建流程。
+-- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
+
 -- Clean rebuild SQL for CityAuncel normalized schema
 -- Generated from the latest project schema. This file intentionally avoids mysqldump LOCK TABLE wrappers.
 SET NAMES utf8mb4;

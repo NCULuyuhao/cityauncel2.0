@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：跨頁共用元件 BarrageLayer，提供可重用的視覺或互動區塊。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getBarrageStatus, getBarragesAfter, getLatestBarrageId, sendBarrageMessage } from "../api/barrageApi";
 

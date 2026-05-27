@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：探究資料卡模組 useCardDerivedData，處理資料卡清單、篩選、呈現或送出資料格式。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { useMemo } from "react";
 import { CATEGORY_KEYS } from "@/features/inquiry/cards/cardCatalog";
 import type { CategoryKey } from "@/features/inquiry/cards/cardPresentation";

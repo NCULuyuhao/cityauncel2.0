@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端暫存工具 controlPageStorage，集中處理 localStorage 讀寫與資料格式保護。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 const TEACHER_GROUPS_STORAGE_KEY = "miaoli-teacher-groups-v1";
 const HOME_DRAFT_PREFIX = "cityauncel_home_draft_";
 const INQUIRY_DRAFT_PREFIX = "cityauncel_inquiry_draft_";

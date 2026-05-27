@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：頁面級元件 InquiryData，組合多個功能模組形成完整使用流程。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import React, {
   memo,
   useCallback,
@@ -67,6 +73,7 @@ import {
   uploadClueSnapshotImage,
 } from "../api/inquiryApi";
 
+// 探究資料卡分類會影響篩選、稱號統計與教師端分析。
 type CategoryKey = "water" | "land" | "leopard" | "rumor" | "other";
 type TitleTier = "novice" | "advanced" | "master";
 type TitleTheme = "water" | "land" | "leopard" | "rumor" | "cross";

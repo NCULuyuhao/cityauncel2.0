@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端固定資料 waterRpiGisRiverShapes，提供地圖、水資源或視覺化元件使用的靜態資料。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 export type WaterRpiGisRiverShape = {
   id: string;
   label: string;

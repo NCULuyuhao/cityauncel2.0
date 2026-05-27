@@ -1,3 +1,9 @@
+/*
+ * CityAuncel maintainability notes
+ * 檔案用途：樣式檔 global，負責全域外觀、主題、頁面覆寫或響應式調整。
+ * 維護重點：調整樣式時需確認不同螢幕尺寸下容器與內容不互相溢出。
+ */
+
 @import "./font.css";
 @import "./responsive-safety.css";
 @import "./game-theme.css";

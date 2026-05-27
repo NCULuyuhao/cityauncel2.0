@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：提供 JWT 驗證、登入者解析與教師權限檢查 middleware。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 const jwt = require("jsonwebtoken");
 const pool = require("../db");
 

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：建立 MySQL 連線池，供 routes 與 services 共用資料庫連線。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 const mysql = require("mysql2/promise");
 require("dotenv").config();
 
@@ -13,6 +19,7 @@ function numberFromEnv(key, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+// 使用連線池避免每次 API 請求都重新建立 MySQL 連線。
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: numberFromEnv("DB_PORT", 3306),

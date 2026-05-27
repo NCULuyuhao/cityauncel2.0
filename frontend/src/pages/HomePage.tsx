@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：頁面級元件 HomePage，組合多個功能模組形成完整使用流程。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import {
   Suspense,
   lazy,
@@ -1006,6 +1012,7 @@ function MedalStars({
   );
 }
 
+// 首頁負責讀取登入者狀態、任務進度與教師端控制後的入口顯示。
 export default function HomePage() {
   const [token, setToken] = useState<string | null>(() => readStoredToken());
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => readStoredUser());

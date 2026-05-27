@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端 realtime API 封裝，讓頁面與功能模組不用直接撰寫 fetch 細節。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { apiUrl } from "./apiClient";
 
 export type RealtimeEvent = {

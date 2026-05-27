@@ -1,3 +1,7 @@
+# CityAuncel maintainability notes
+# 檔案用途：輔助產生精準地圖資料的 Python 腳本。
+# 維護重點：此腳本用於輔助資料整理，執行前請先確認輸入/輸出路徑。
+
 from pathlib import Path
 import json, zipfile, shutil
 import geopandas as gpd

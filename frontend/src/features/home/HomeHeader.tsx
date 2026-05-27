@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：首頁功能元件 HomeHeader，負責任務入口、稱號或首頁區塊呈現。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 

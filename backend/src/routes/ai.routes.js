@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：後端 ai 功能 API 路由，負責接收請求、檢查參數並回傳 JSON 結果。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 const express = require("express");
 
 const pool = require("../db");
@@ -15,6 +21,7 @@ const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || "";
 const AZURE_OPENAI_AI_HELPER_DEPLOYMENT = process.env.AZURE_OPENAI_AI_HELPER_DEPLOYMENT || "";
 const AZURE_OPENAI_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || "preview";
 const AZURE_OPENAI_RESPONSES_URL = process.env.AZURE_OPENAI_RESPONSES_URL || "";
+// 將 OpenAI Responses、Chat Completions 與 Azure 相容格式統一抽成純文字。
 function extractOpenAIOutputText(data) {
   if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text.trim();
   const chunks = [];
@@ -59,6 +66,7 @@ function trimTrailingSlash(value) {
   return String(value || "").replace(/\/+$/, "");
 }
 
+// 依環境變數決定使用 Azure OpenAI 或 OpenAI 官方 API。
 function getConfiguredAiProvider(options = {}) {
   const purpose = options.purpose || "general";
   const azureDeployment =

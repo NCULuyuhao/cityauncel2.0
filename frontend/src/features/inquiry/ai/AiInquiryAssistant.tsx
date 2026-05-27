@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：AI 幫幫忙模組 AiInquiryAssistant，處理學生支援需求、對話狀態或 AI 顯示規則。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
@@ -45,6 +51,7 @@ import {
   readFocusedInputContext,
 } from "./aiHelperUtils";
 
+// AI 幫幫忙主元件：集中管理開關、投幣、幫助類型、對話與使用次數。
 export default function AiInquiryAssistant({
   token,
   currentPage,
@@ -76,6 +83,7 @@ export default function AiInquiryAssistant({
   const [showRenewChoice, setShowRenewChoice] = useState(false);
   const [isCheckingCoinBalance, setIsCheckingCoinBalance] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  // 每次幫助都有獨立 session id，方便前端判斷續費與後端記錄使用事件。
   const currentHelpSessionIdRef = useRef(createMessageId());
   const startHelpRef = useRef<(needType: AiNeedType, preserveHistory?: boolean) => void>(() => undefined);
   const sendMessageRef = useRef<(

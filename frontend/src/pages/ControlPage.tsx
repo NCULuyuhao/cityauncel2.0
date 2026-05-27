@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：頁面級元件 ControlPage，組合多個功能模組形成完整使用流程。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MIAOLI_MAP_VIEW_BOX, labelPositions, regions } from "../data/miaoliMapView";
 import { subscribeRealtime } from "../api/realtime";

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：首頁功能 hook useHomeTeacherControlState，封裝首頁狀態、即時事件或教師控制資料。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import { useEffect, useRef } from "react";
 import {
   getCardPackStatus,

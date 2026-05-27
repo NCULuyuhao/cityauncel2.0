@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端暫存工具 authStorage，集中處理 localStorage 讀寫與資料格式保護。
+ * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ */
+
 import type { AuthUser } from "@/pages/HomePage";
 
 const TOKEN_KEY = "cityauncel_token";
