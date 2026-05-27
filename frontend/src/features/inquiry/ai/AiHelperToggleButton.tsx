@@ -24,8 +24,7 @@ export function AiHelperToggleButton({
     <motion.button
       type="button"
       onClick={onClick}
-      whileHover={{ y: -2 }}
-      className="group flex items-center gap-2 rounded-full border-2 border-[#f3d68d] bg-gradient-to-br from-[#6f4d25] to-[#3f2e1c] px-4 py-3 text-sm font-black tracking-[0.08em] text-white shadow-[0_14px_38px_rgba(61,44,22,0.32)]"
+      className="flex items-center gap-2 rounded-full border-2 border-[#f3d68d] bg-gradient-to-br from-[#6f4d25] to-[#3f2e1c] px-4 py-3 text-sm font-black tracking-[0.08em] text-white shadow-[0_14px_38px_rgba(61,44,22,0.32)]"
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ffe39a] text-[#4a3217] shadow-inner">
         <Bot size={20} />

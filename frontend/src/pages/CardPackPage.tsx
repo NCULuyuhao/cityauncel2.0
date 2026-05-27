@@ -1478,7 +1478,7 @@ export default function CardPackPage({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-black tracking-[0.12em] text-black/85 backdrop-blur transition hover:bg-white/16"
+          className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-black tracking-[0.12em] text-black/85 backdrop-blur transition"
         >
           <ArrowLeft className="h-4 w-4" /> 回首頁
         </button>
@@ -1867,7 +1867,7 @@ export default function CardPackPage({
                   data-lock-button="true"
                   onClick={requestLockSelection}
                   disabled={!canLock}
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-yellow-100 bg-[linear-gradient(135deg,#fde047,#f59e0b)] px-6 py-3 text-sm font-black tracking-[0.14em] text-[#2f1600] shadow-[0_0_0_3px_rgba(255,255,255,0.55),0_0_34px_rgba(250,204,21,0.58),0_14px_34px_rgba(120,53,15,0.22)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:cursor-not-allowed disabled:border-white/20 disabled:bg-none disabled:bg-white/12 disabled:text-white/38 disabled:shadow-none disabled:hover:translate-y-0"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-yellow-100 bg-[linear-gradient(135deg,#fde047,#f59e0b)] px-6 py-3 text-sm font-black tracking-[0.14em] text-[#2f1600] shadow-[0_0_0_3px_rgba(255,255,255,0.55),0_0_34px_rgba(250,204,21,0.58),0_14px_34px_rgba(120,53,15,0.22)] transition disabled:cursor-not-allowed disabled:border-white/20 disabled:bg-none disabled:bg-white/12 disabled:text-white/38 disabled:shadow-none"
                 >
                   <Lock className="h-4 w-4" /> 鎖定
                 </button>
@@ -1997,7 +1997,7 @@ export default function CardPackPage({
                           onPointerCancel={() => handleCardPointerUp(card.id)}
                           onClick={() => handleCardClick(card.id)}
                           disabled={isLocked}
-                          className={`group relative block aspect-[3/4] w-full touch-pan-y overflow-hidden rounded-[24px] border p-[clamp(3px,1.2vmin,7px)] text-left transition ${selected ? "border-yellow-200 shadow-[0_0_0_4px_rgba(250,204,21,0.62),0_0_36px_rgba(253,224,71,0.92),0_0_90px_rgba(255,255,255,0.28)]" : "border-white/35 shadow-[0_18px_44px_rgba(0,0,0,0.28),0_0_22px_rgba(255,255,255,0.12)] hover:-translate-y-1"} disabled:cursor-default`}
+                          className={`relative block aspect-[3/4] w-full touch-pan-y overflow-hidden rounded-[24px] border p-[clamp(3px,1.2vmin,7px)] text-left transition ${selected ? "border-yellow-200 shadow-[0_0_0_4px_rgba(250,204,21,0.62),0_0_36px_rgba(253,224,71,0.92),0_0_90px_rgba(255,255,255,0.28)]" : "border-white/35 shadow-[0_18px_44px_rgba(0,0,0,0.28),0_0_22px_rgba(255,255,255,0.12)]"} disabled:cursor-default`}
                         >
                           <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden opacity-70">
                             <div className="absolute left-[10%] top-[10%] h-[clamp(4px,1.2vw,6px)] w-[clamp(4px,1.2vw,6px)] rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.95)]" />
@@ -2026,7 +2026,6 @@ export default function CardPackPage({
                                 className={`card-pack-card-face absolute inset-0 flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[20px] border border-white/70 bg-gradient-to-br ${meta.cardFace} p-[clamp(5px,1.5vmin,10px)] ${meta.cardText} shadow-[inset_0_0_24px_rgba(255,255,255,0.34)] [backface-visibility:hidden]`}
                               >
                                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(255,255,255,0.72),transparent_22%),radial-gradient(circle_at_82%_86%,rgba(255,255,255,0.34),transparent_26%)]" />
-                                <div className="pointer-events-none absolute -left-1/3 top-0 h-full w-1/3 rotate-12 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.70),transparent)] opacity-60 transition-transform duration-700 group-hover:translate-x-[420%]" />
                                 <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[clamp(10px,2.4vmin,18px)] bg-white/62 px-[clamp(4px,1.35vmin,8px)] py-[clamp(4px,1.35vmin,8px)] text-center shadow-sm">
                                   <p
                                     className="card-pack-card-front-text max-h-full max-w-full select-none overflow-hidden break-words text-center text-[clamp(0.52rem,2.05vmin,0.86rem)] font-black leading-[1.22] opacity-0 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:8]"
@@ -2178,7 +2177,7 @@ export default function CardPackPage({
                 type="button"
                 onClick={lockSelection}
                 disabled={!canConfirmLock}
-                className="rounded-2xl border border-amber-300 bg-[linear-gradient(135deg,#facc15,#f59e0b)] px-4 py-3 text-sm font-black tracking-[0.12em] text-[#3f2412] shadow-[0_0_28px_rgba(251,191,36,0.34)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-none disabled:bg-stone-100 disabled:text-stone-400 disabled:shadow-none disabled:hover:translate-y-0"
+                className="rounded-2xl border border-amber-300 bg-[linear-gradient(135deg,#facc15,#f59e0b)] px-4 py-3 text-sm font-black tracking-[0.12em] text-[#3f2412] shadow-[0_0_28px_rgba(251,191,36,0.34)] transition disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-none disabled:bg-stone-100 disabled:text-stone-400 disabled:shadow-none"
               >
                 確認送出鎖定
               </button>

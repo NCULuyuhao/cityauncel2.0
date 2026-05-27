@@ -60,31 +60,31 @@ export const categoryTabThemeMap: Record<
   water: {
     active:
       "border-sky-300 bg-sky-50/95 text-sky-800 shadow-[0_8px_22px_rgba(14,165,233,0.10)]",
-    inactive: "border-sky-100 bg-white/86 hover:bg-sky-50/88",
+    inactive: "border-sky-100 bg-white/86",
     badge: "bg-sky-100/90 text-sky-700",
   },
   land: {
     active:
       "border-emerald-300 bg-emerald-50/95 text-emerald-800 shadow-[0_8px_22px_rgba(16,185,129,0.10)]",
-    inactive: "border-emerald-100 bg-white/86 hover:bg-emerald-50/88",
+    inactive: "border-emerald-100 bg-white/86",
     badge: "bg-emerald-100/90 text-emerald-700",
   },
   leopard: {
     active:
       "border-orange-300 bg-orange-50/95 text-orange-800 shadow-[0_8px_22px_rgba(249,115,22,0.10)]",
-    inactive: "border-orange-100 bg-white/86 hover:bg-orange-50/88",
+    inactive: "border-orange-100 bg-white/86",
     badge: "bg-orange-100/90 text-orange-700",
   },
   rumor: {
     active:
       "border-violet-300 bg-violet-50/95 text-violet-800 shadow-[0_8px_22px_rgba(139,92,246,0.10)]",
-    inactive: "border-violet-100 bg-white/86 hover:bg-violet-50/88",
+    inactive: "border-violet-100 bg-white/86",
     badge: "bg-violet-100/90 text-violet-700",
   },
   other: {
     active:
       "border-amber-300 bg-amber-50/95 text-amber-800 shadow-[0_8px_22px_rgba(245,158,11,0.10)]",
-    inactive: "border-amber-100 bg-white/86 hover:bg-amber-50/88",
+    inactive: "border-amber-100 bg-white/86",
     badge: "bg-amber-100/90 text-amber-700",
   },
 };
@@ -472,7 +472,6 @@ export const writtenCardStateMap: Record<
     iconText: string;
     hintText: string;
     badge: string;
-    hoverGlow: string;
     previewBox: string;
     collectionItem: string;
     collectionLabel: string;
@@ -488,9 +487,8 @@ export const writtenCardStateMap: Record<
     hintText: "text-sky-600",
     badge:
       "rounded-full border border-sky-200 bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700",
-    hoverGlow: "group-hover:shadow-[0_12px_28px_rgba(14,165,233,0.18)]",
     previewBox: "border border-sky-200 bg-sky-50/80",
-    collectionItem: "border border-sky-200 bg-sky-50 hover:bg-sky-100/70",
+    collectionItem: "border border-sky-200 bg-sky-50",
     collectionLabel: "bg-sky-100 text-sky-700",
     collectionHint: "text-sky-600",
     collectionArrow: "text-sky-500",
@@ -503,9 +501,8 @@ export const writtenCardStateMap: Record<
     hintText: "text-lime-700",
     badge:
       "rounded-full border border-lime-200 bg-lime-100 px-3 py-1 text-xs font-medium text-lime-700",
-    hoverGlow: "group-hover:shadow-[0_12px_28px_rgba(132,204,22,0.18)]",
     previewBox: "border border-lime-200 bg-lime-50/80",
-    collectionItem: "border border-lime-200 bg-lime-50 hover:bg-lime-100/70",
+    collectionItem: "border border-lime-200 bg-lime-50",
     collectionLabel: "bg-lime-100 text-lime-700",
     collectionHint: "text-lime-700",
     collectionArrow: "text-lime-600",
@@ -518,10 +515,8 @@ export const writtenCardStateMap: Record<
     hintText: "text-orange-700",
     badge:
       "rounded-full border border-orange-200 bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700",
-    hoverGlow: "group-hover:shadow-[0_12px_28px_rgba(249,115,22,0.18)]",
     previewBox: "border border-orange-200 bg-orange-50/80",
-    collectionItem:
-      "border border-orange-200 bg-orange-50 hover:bg-orange-100/70",
+    collectionItem: "border border-orange-200 bg-orange-50",
     collectionLabel: "bg-orange-100 text-orange-700",
     collectionHint: "text-orange-700",
     collectionArrow: "text-orange-500",
@@ -534,10 +529,8 @@ export const writtenCardStateMap: Record<
     hintText: "text-violet-700",
     badge:
       "rounded-full border border-violet-200 bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700",
-    hoverGlow: "group-hover:shadow-[0_12px_28px_rgba(139,92,246,0.18)]",
     previewBox: "border border-violet-200 bg-violet-50/80",
-    collectionItem:
-      "border border-violet-200 bg-violet-50 hover:bg-violet-100/70",
+    collectionItem: "border border-violet-200 bg-violet-50",
     collectionLabel: "bg-violet-100 text-violet-700",
     collectionHint: "text-violet-700",
     collectionArrow: "text-violet-500",
@@ -550,9 +543,8 @@ export const writtenCardStateMap: Record<
     hintText: "text-amber-700",
     badge:
       "rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700",
-    hoverGlow: "group-hover:shadow-[0_12px_28px_rgba(245,158,11,0.18)]",
     previewBox: "border border-amber-200 bg-amber-50/80",
-    collectionItem: "border border-amber-200 bg-amber-50 hover:bg-amber-100/70",
+    collectionItem: "border border-amber-200 bg-amber-50",
     collectionLabel: "bg-amber-100 text-amber-700",
     collectionHint: "text-amber-700",
     collectionArrow: "text-amber-500",

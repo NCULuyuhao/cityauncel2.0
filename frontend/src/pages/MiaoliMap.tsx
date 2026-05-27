@@ -224,11 +224,6 @@ const styles = `
   box-shadow:0 10px 24px rgba(45,41,34,.12);
   transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
-.back-btn:hover {
-  transform:translateY(-1px);
-  background:#fffaf0;
-  box-shadow:0 14px 30px rgba(45,41,34,.16);
-}
 .wrap {
   position:relative;
   z-index:1;
@@ -336,10 +331,6 @@ h1 {
   box-shadow:0 8px 18px rgba(45,41,34,.06);
   transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
-.mode-btn:hover {
-  transform:translateY(-1px);
-  box-shadow:0 12px 22px rgba(45,41,34,.1);
-}
 .mode-btn.active {
   background:#4f4333;
   border-color:#4f4333;
@@ -380,15 +371,8 @@ h1 {
   will-change:transform;
 }
 .piece:focus { outline:none; }
-.piece:hover {
-  transform:translate3d(0,-2px,0) scale(1.006);
-}
 .piece.locked {
   cursor:not-allowed;
-}
-.piece.locked:hover {
-  transform:none;
-  filter:none;
 }
 .piece.active {
   transform:translate3d(0,-2px,0) scale(1.01);
@@ -617,10 +601,6 @@ h1 {
   box-shadow:0 8px 18px rgba(45,41,34,.08);
   transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
 }
-.map-btn:hover {
-  transform:translateY(-1px);
-  box-shadow:0 12px 22px rgba(45,41,34,.12);
-}
 .map-btn:disabled {
   opacity:.45;
   cursor:not-allowed;
@@ -720,11 +700,6 @@ h1 {
   padding: 14px 0;
   box-shadow: none;
   transition: all 0.15s ease;
-}
-
-.btn-unknown:hover:not(:disabled) {
-  background:rgba(154,160,166,.28);
-  transform: translateY(-1px);
 }
 
 .member-avatar-list {
@@ -857,10 +832,6 @@ h1 {
   box-shadow:0 6px 0 rgba(74,46,27,.16), 0 14px 24px rgba(45,41,34,.14);
   cursor:pointer;
   transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
-}
-.region-clue-btn:hover:not(:disabled) {
-  transform:translateY(-1px);
-  box-shadow:0 8px 0 rgba(74,46,27,.14), 0 18px 28px rgba(45,41,34,.16);
 }
 .region-clue-btn:disabled {
   cursor:not-allowed;
@@ -1095,12 +1066,6 @@ h1 {
   transform:translateZ(0);
   backface-visibility:hidden;
 }
-@media (hover: hover) {
-  .map-btn:hover, .mode-btn:hover, .back-btn:hover {
-    transform:translate3d(0,-1px,0);
-  }
-}
-
 @media (max-width: 1180px) and (min-width: 901px) {
   .wrap {
     grid-template-columns:minmax(0,1fr) minmax(240px,.68fr);

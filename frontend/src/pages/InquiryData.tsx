@@ -283,7 +283,7 @@ function IntroCountdownButton({
         onClick();
       }}
       disabled={isLocked}
-      className={`${className} disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0`}
+      className={`${className} disabled:cursor-not-allowed disabled:opacity-55`}
     >
       {isLocked ? (
         <span className="inline-flex items-center justify-center gap-1">
@@ -3117,11 +3117,10 @@ function CategoryTabs({
             <motion.button
               key={key}
               type="button"
-              whileHover={{ y: -3 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => onChange(key)}
               className={[
-                "relative overflow-hidden rounded-[26px] border px-4 py-4 text-left transition hover:shadow-md",
+                "relative overflow-hidden rounded-[26px] border px-4 py-4 text-left transition",
                 active ? theme.active : theme.inactive,
               ].join(" ")}
             >
@@ -3240,7 +3239,6 @@ function TrophyPanel({
 
       <motion.button
         type="button"
-        whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.95 }}
         animate={
           hasNewTitle && !open

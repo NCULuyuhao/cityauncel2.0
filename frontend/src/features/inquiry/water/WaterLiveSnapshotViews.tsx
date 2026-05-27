@@ -95,7 +95,7 @@ const EVIDENCE_CREATOR_THEME = {
   listItem:
     "rounded-xl border border-[#eadfcf] bg-[#fffdf8] shadow-[0_4px_12px_rgba(140,108,54,0.06)]",
   timelineChipActive: "bg-[#fff0cf] text-[#7b5b37]",
-  timelineChipIdle: "text-[#7a6754] hover:bg-[#fff4df]",
+  timelineChipIdle: "text-[#7a6754]",
 };
 
 function roundRpiValue(value: number) {
@@ -456,7 +456,7 @@ export function WaterLiveSnapshotCardPreview({
           alt={meta.filterLabel}
           className={`max-h-full max-w-full object-contain ${
             muted
-              ? "opacity-60 saturate-75 transition-opacity duration-150 group-hover:opacity-70"
+              ? "opacity-70 saturate-75"
               : ""
           }`}
           loading="lazy"
@@ -473,7 +473,7 @@ export function WaterLiveSnapshotCardPreview({
       <div
         className={`pointer-events-none absolute left-0 top-0 h-[400%] w-[400%] origin-top-left ${
           muted
-            ? "opacity-60 saturate-75 transition-opacity duration-150 group-hover:opacity-70"
+            ? "opacity-70 saturate-75"
             : ""
         }`}
         style={{ transform: "scale(0.25)" }}

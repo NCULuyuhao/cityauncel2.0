@@ -158,7 +158,6 @@ const selectorMapStyles = `
   transform-box: fill-box;
   transform-origin: center;
 }
-.miaoli-district-selector-map__piece:hover,
 .miaoli-district-selector-map__piece.is-float-selected {
   transform: translate3d(0, -2px, 0) scale(1.008);
 }
@@ -175,13 +174,11 @@ const selectorMapStyles = `
   pointer-events: none;
 }
 .miaoli-district-selector-map__piece.is-transparent-button,
-.miaoli-district-selector-map__piece.is-transparent-button:hover,
 .miaoli-district-selector-map__piece.is-transparent-button.is-selected,
 .miaoli-district-selector-map__piece.is-transparent-button.is-float-selected {
   transform: none;
 }
 .miaoli-district-selector-map__piece.is-transparent-button .miaoli-district-selector-map__shape,
-.miaoli-district-selector-map__piece.is-transparent-button:hover .miaoli-district-selector-map__shape,
 .miaoli-district-selector-map__piece.is-transparent-button.is-selected .miaoli-district-selector-map__shape,
 .miaoli-district-selector-map__piece.is-transparent-button.is-float-selected .miaoli-district-selector-map__shape {
   fill: rgba(255, 255, 255, 0) !important;
@@ -189,11 +186,6 @@ const selectorMapStyles = `
   stroke-width: 0 !important;
   filter: none !important;
   pointer-events: all;
-}
-.miaoli-district-selector-map__piece:hover .miaoli-district-selector-map__shape {
-  fill: var(--selector-hover);
-  stroke: #9b7b55;
-  stroke-width: 0.72;
 }
 .miaoli-district-selector-map__piece.is-float-selected .miaoli-district-selector-map__shape {
   filter: drop-shadow(0 10px 13px rgba(74, 56, 43, .18));

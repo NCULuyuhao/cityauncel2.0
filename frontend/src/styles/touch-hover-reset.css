@@ -1,0 +1,33 @@
+@media (hover: none), (pointer: coarse) {
+  .uiux-page-shell button:hover,
+  .uiux-page-shell [role="button"]:hover,
+  .uiux-page-shell a:hover,
+  .game-adventure-page button:hover,
+  .game-adventure-page [role="button"]:hover,
+  .game-adventure-page a:hover {
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .uiux-page-shell [class*="hover:-translate"]:hover,
+  .uiux-page-shell [class*="hover:scale"]:hover,
+  .game-adventure-page [class*="hover:-translate"]:hover,
+  .game-adventure-page [class*="hover:scale"]:hover {
+    transform: none !important;
+  }
+
+  .uiux-page-shell [class*="hover:shadow"]:hover,
+  .game-adventure-page [class*="hover:shadow"]:hover {
+    box-shadow: inherit !important;
+  }
+
+  .uiux-page-shell [class*="hover:brightness"]:hover,
+  .game-adventure-page [class*="hover:brightness"]:hover {
+    filter: none !important;
+  }
+
+  .group:hover [class*="group-hover:"] {
+    transform: none !important;
+    filter: none !important;
+  }
+}

@@ -213,7 +213,7 @@ export const GameCardGrid = memo(function GameCardGrid({
                             : regionFilter.includes(option.value)
                         )
                           ? "border-[#6f7d5f] bg-[#edf5df] text-[#445236] shadow-sm"
-                          : "border-[#e2d4bd] bg-[#fffdf8] text-[#6d5e49] hover:bg-[#fff4df]"
+                          : "border-[#e2d4bd] bg-[#fffdf8] text-[#6d5e49]"
                       }`}
                     >
                       {option.label}
@@ -246,7 +246,7 @@ export const GameCardGrid = memo(function GameCardGrid({
                           : questionFilter.includes(option.value)
                       )
                         ? "border-[#9b7b55] bg-[#fff0cf] text-[#5f4528] shadow-sm"
-                        : "border-[#e2d4bd] bg-[#fffdf8] text-[#6d5e49] hover:bg-[#fff4df]"
+                        : "border-[#e2d4bd] bg-[#fffdf8] text-[#6d5e49]"
                     }`}
                   >
                     {option.label}
@@ -304,7 +304,7 @@ export const GameCardGrid = memo(function GameCardGrid({
               type="button"
               data-game-card-id={card.id}
               onClick={() => onOpenCard(card)}
-              className={`group relative aspect-[6/5] text-left transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.99] ${card.id === flashingSnapshotCardId ? "snapshot-card-glow-flash" : ""}`}
+              className={`relative aspect-[6/5] text-left transition-transform duration-150 active:scale-[0.99] ${card.id === flashingSnapshotCardId ? "snapshot-card-glow-flash" : ""}`}
               style={{ contain: "layout paint style" }}
             >
               <div className="hidden" />
@@ -349,7 +349,7 @@ export const GameCardGrid = memo(function GameCardGrid({
                               src={card.imageSrc}
                               alt={`${card.title}縮圖`}
                               priority={isPriorityImageRow}
-                              className="h-full w-full scale-[1.03] object-contain opacity-48 saturate-75 transition-opacity duration-150 group-hover:opacity-58"
+                              className="h-full w-full scale-[1.03] object-contain opacity-60 saturate-75"
                             />
                           )
                         ) : null}

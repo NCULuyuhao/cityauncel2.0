@@ -81,34 +81,34 @@ function getCollectionSortButtonClasses(
   if (mode === "latest") {
     return isActive
       ? "border-slate-300 bg-white text-slate-800 shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-      : "border-transparent bg-transparent text-slate-500 hover:bg-white/80 hover:text-slate-700";
+      : "border-transparent bg-transparent text-slate-500";
   }
 
   const classes: Record<CategoryKey, { active: string; idle: string }> = {
     water: {
       active:
         "border-sky-200 bg-white text-sky-800 shadow-[0_8px_18px_rgba(14,165,233,0.10)]",
-      idle: "border-transparent bg-transparent text-sky-600 hover:bg-white/80",
+      idle: "border-transparent bg-transparent text-sky-600",
     },
     land: {
       active:
         "border-lime-200 bg-white text-lime-800 shadow-[0_8px_18px_rgba(132,204,22,0.10)]",
-      idle: "border-transparent bg-transparent text-lime-700 hover:bg-white/80",
+      idle: "border-transparent bg-transparent text-lime-700",
     },
     leopard: {
       active:
         "border-orange-200 bg-white text-orange-800 shadow-[0_8px_18px_rgba(249,115,22,0.10)]",
-      idle: "border-transparent bg-transparent text-orange-700 hover:bg-white/80",
+      idle: "border-transparent bg-transparent text-orange-700",
     },
     rumor: {
       active:
         "border-violet-200 bg-white text-violet-800 shadow-[0_8px_18px_rgba(139,92,246,0.10)]",
-      idle: "border-transparent bg-transparent text-violet-700 hover:bg-white/80",
+      idle: "border-transparent bg-transparent text-violet-700",
     },
     other: {
       active:
         "border-amber-200 bg-white text-amber-800 shadow-[0_8px_18px_rgba(245,158,11,0.10)]",
-      idle: "border-transparent bg-transparent text-amber-700 hover:bg-white/80",
+      idle: "border-transparent bg-transparent text-amber-700",
     },
   };
 
@@ -286,9 +286,9 @@ export function CollectedCardsPanel({
                       key={card.id}
                       type="button"
                       onClick={() => handleOpenCollectedCard(card)}
-                      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 text-left transition hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(15,23,42,0.10)] ${theme.collectionItem}`}
+                      className={`relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 text-left ${theme.collectionItem}`}
                     >
-                      <div className="pointer-events-none absolute inset-y-2 left-2 w-28 rounded-2xl bg-white/35 opacity-70 blur-xl transition group-hover:opacity-100" />
+                      <div className="pointer-events-none absolute inset-y-2 left-2 w-28 rounded-2xl bg-white/35 opacity-85 blur-xl" />
 
                       <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-visible">
                         <div className="absolute inset-3 rounded-full bg-white/60 blur-md" />
@@ -303,7 +303,7 @@ export function CollectedCardsPanel({
                               src={card.imageSrc}
                               alt={card.revealedTitle}
                               loading="lazy"
-                              className="max-h-full max-w-full object-contain drop-shadow-sm transition-transform duration-200 group-hover:scale-[1.04]"
+                              className="max-h-full max-w-full object-contain drop-shadow-sm"
                             />
                           )}
                         </div>
@@ -332,7 +332,7 @@ export function CollectedCardsPanel({
                         </div>
                       </div>
 
-                      <div className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/70 shadow-sm transition group-hover:bg-white">
+                      <div className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-sm">
                         <ChevronRight
                           className={`h-4 w-4 ${theme.collectionArrow}`}
                         />
@@ -352,7 +352,6 @@ export function CollectedCardsPanel({
 
       <motion.button
         type="button"
-        whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.95 }}
         animate={
           hasNewContent && !open

@@ -113,7 +113,6 @@ const rpiRiverMapStyles = `
   vector-effect: non-scaling-stroke;
   transition: opacity .18s ease, filter .18s ease, stroke-width .18s ease;
 }
-.water-rpi-river-map__river-area:hover,
 .water-rpi-river-map__river-area.is-selected {
   filter: drop-shadow(0 4px 7px rgba(2, 132, 199, .22));
 }
