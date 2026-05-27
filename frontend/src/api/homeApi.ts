@@ -5,6 +5,8 @@
  */
 
 import { authHeaders, requestJson } from "./apiClient";
+import { removeApiCache, requestJsonCacheFirst, writeApiCache } from "./apiResponseCache";
+import { requestJsonWithPending } from "./pendingWriteQueue";
 
 export type ApiRecord = Record<string, unknown>;
 export type MapChoiceApi = "保育" | "開發" | "我不知道";
@@ -75,38 +77,31 @@ export function getMe(token: string) {
 }
 
 export function getGroupPersonalMaps(token: string) {
-  return requestJson<GroupPersonalMapsApi>("/api/group-personal-maps", {
-    headers: authHeaders(token),
-    cache: "no-store",
-  });
+  return requestJsonCacheFirst<GroupPersonalMapsApi>(token, "/api/group-personal-maps");
 }
 
 export function getClassGroupDecisions(token: string) {
-  return requestJson<ClassGroupDecisionsApi>("/api/class-group-decisions", {
-    headers: authHeaders(token),
-    cache: "no-store",
-  });
+  return requestJsonCacheFirst<ClassGroupDecisionsApi>(token, "/api/class-group-decisions");
 }
 
 export function getClassFinalDecisions(token: string) {
-  return requestJson<MapStateApi>("/api/class-final-decisions", {
-    headers: authHeaders(token),
-    cache: "no-store",
-  });
+  return requestJsonCacheFirst<MapStateApi>(token, "/api/class-final-decisions");
 }
 
 export function getUserMap(token: string) {
-  return requestJson<UserMapApi>("/api/user-map", {
-    headers: authHeaders(token),
-  });
+  return requestJsonCacheFirst<UserMapApi>(token, "/api/user-map");
 }
 
-export function saveUserMapState(token: string, mapState: unknown) {
-  return requestJson<ApiRecord>("/api/user-map", {
+export async function saveUserMapState(token: string, mapState: unknown) {
+  const response = await requestJsonWithPending<ApiRecord>(token, {
+    path: "/api/user-map",
     method: "PUT",
-    headers: authHeaders(token),
-    body: JSON.stringify({ mapState }),
+    body: { mapState },
+    dedupeKey: "user-map",
   });
+  writeApiCache("/api/user-map", { mapState });
+  removeApiCache("/api/group-personal-maps");
+  return response;
 }
 
 export function getInquiryTaskStatus(token: string) {
@@ -152,30 +147,36 @@ export function getFinalDecisionSettlement(token: string) {
 }
 
 export function writeActivityLog(token: string, payload: unknown) {
-  return requestJson<ApiRecord>("/api/activity-log", {
+  return requestJsonWithPending<ApiRecord>(token, {
+    path: "/api/activity-log",
     method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
-export function saveFinalMapDecision(
+export async function saveFinalMapDecision(
   token: string,
   mode: "group" | "class",
   districtName: string,
   choice: string | null,
 ) {
-  return requestJson<ApiRecord>(mode === "group" ? "/api/group-final-decision" : "/api/class-final-decision", {
+  const response = await requestJsonWithPending<ApiRecord>(token, {
+    path: mode === "group" ? "/api/group-final-decision" : "/api/class-final-decision",
     method: mode === "group" ? "PUT" : "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ districtName, choice }),
+    body: { districtName, choice },
+    dedupeKey: `final-map:${mode}:${districtName}`,
   });
+  removeApiCache("/api/group-personal-maps");
+  removeApiCache("/api/class-group-decisions");
+  removeApiCache("/api/class-final-decisions");
+  return response;
 }
 
 export function submitSuspectVotes(token: string, ranking: string[]) {
-  return requestJson<ApiRecord>("/api/suspect-votes", {
+  return requestJsonWithPending<ApiRecord>(token, {
+    path: "/api/suspect-votes",
     method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ ranking }),
+    body: { ranking },
+    dedupeKey: "suspect-votes",
   });
 }

@@ -5,6 +5,8 @@
  */
 
 import { apiUrl, authHeaders, persistableMediaPath, requestJson } from "./apiClient";
+import { removeApiCache, requestJsonCacheFirst } from "./apiResponseCache";
+import { requestJsonWithPending } from "./pendingWriteQueue";
 import { normalizeInquirySummaryForSave, stripLargePayload } from "@/utils/payloadNormalization";
 
 
@@ -23,17 +25,30 @@ export type InquiryRecordResponse = {
 };
 
 export async function loadInquiryData(token: string) {
-  return requestJson<InquiryDataResponse>("/api/inquiries", {
-    headers: authHeaders(token),
-  });
+  return requestJsonCacheFirst<InquiryDataResponse>(token, "/api/inquiries");
+}
+
+function getSummaryDedupeKey(summary: unknown) {
+  if (!summary || typeof summary !== "object" || Array.isArray(summary)) return Date.now().toString();
+  const value = summary as Record<string, unknown>;
+  return String(
+    value.recordOrder ??
+      value.orientationCreatedAt ??
+      value.createdAt ??
+      value.id ??
+      Date.now(),
+  );
 }
 
 export async function createInquiryRecord(token: string, recordOrder?: number) {
-  return requestJson<InquiryRecordResponse>("/api/inquiries/records", {
+  const response = await requestJsonWithPending<InquiryRecordResponse>(token, {
+    path: "/api/inquiries/records",
     method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ recordOrder }),
+    body: { recordOrder },
+    dedupeKey: `inquiry-record:${recordOrder ?? "auto"}`,
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 export async function createInquiryPlan(
@@ -42,52 +57,72 @@ export async function createInquiryPlan(
   orientationCreatedAt: string,
   recordOrder?: number | null,
 ) {
-  return requestJson<unknown>("/api/inquiries/plans", {
+  const response = await requestJsonWithPending<unknown>(token, {
+    path: "/api/inquiries/plans",
     method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ introStage, orientationCreatedAt, recordOrder }),
+    body: { introStage, orientationCreatedAt, recordOrder },
+    dedupeKey: `inquiry-plan:${recordOrder ?? "unknown"}:${orientationCreatedAt}`,
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 
 export async function replaceInquiryPlans(token: string, inquiryPlans: unknown[]) {
-  return requestJson<unknown>("/api/inquiries/plans", {
+  const response = await requestJsonWithPending<unknown>(token, {
+    path: "/api/inquiries/plans",
     method: "PUT",
-    headers: authHeaders(token),
-    body: JSON.stringify({ inquiryPlans }),
+    body: { inquiryPlans },
+    dedupeKey: "inquiry-plans:replace",
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 export async function saveInvestigationSummary(token: string, summary: unknown) {
-  return requestJson<unknown>("/api/inquiries/investigations", {
+  const normalizedSummary = stripLargePayload(normalizeInquirySummaryForSave(summary));
+  const response = await requestJsonWithPending<unknown>(token, {
+    path: "/api/inquiries/investigations",
     method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ summary: stripLargePayload(normalizeInquirySummaryForSave(summary)) }),
+    body: { summary: normalizedSummary },
+    dedupeKey: `investigation:${getSummaryDedupeKey(normalizedSummary)}`,
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 export async function createFinalSummary(token: string, summary: unknown) {
-  return requestJson<unknown>("/api/inquiries/final-summaries", {
+  const normalizedSummary = stripLargePayload(normalizeInquirySummaryForSave(summary));
+  const response = await requestJsonWithPending<unknown>(token, {
+    path: "/api/inquiries/final-summaries",
     method: "POST",
-    headers: authHeaders(token),
-    body: JSON.stringify({ summary: stripLargePayload(normalizeInquirySummaryForSave(summary)) }),
+    body: { summary: normalizedSummary },
+    dedupeKey: `final-summary:${getSummaryDedupeKey(normalizedSummary)}`,
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 export async function replaceFinalSummaries(token: string, finalSummaries: unknown[]) {
-  return requestJson<unknown>("/api/inquiries/final-summaries", {
+  const response = await requestJsonWithPending<unknown>(token, {
+    path: "/api/inquiries/final-summaries",
     method: "PUT",
-    headers: authHeaders(token),
-    body: JSON.stringify({ finalSummaries: stripLargePayload(finalSummaries) }),
+    body: { finalSummaries: stripLargePayload(finalSummaries) },
+    dedupeKey: "final-summaries:replace",
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 export async function saveInquiryTitles(token: string, earnedTitles: unknown[]) {
-  return requestJson<unknown>("/api/inquiries/titles", {
+  const response = await requestJsonWithPending<unknown>(token, {
+    path: "/api/inquiries/titles",
     method: "PUT",
-    headers: authHeaders(token),
-    body: JSON.stringify({ earnedTitles }),
+    body: { earnedTitles },
+    dedupeKey: "inquiry-titles",
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 function stripLargeCardPayload(value: unknown): unknown {
@@ -133,11 +168,14 @@ export async function saveInquiryCards(token: string, unlockedCards: unknown[]) 
     .map(stripLargeCardPayload)
     .filter(Boolean);
 
-  return requestJson<unknown>("/api/inquiries/cards", {
+  const response = await requestJsonWithPending<unknown>(token, {
+    path: "/api/inquiries/cards",
     method: "PUT",
-    headers: authHeaders(token),
-    body: JSON.stringify({ unlockedCards: compactUnlockedCards }),
+    body: { unlockedCards: compactUnlockedCards },
+    dedupeKey: "inquiry-cards",
   });
+  removeApiCache("/api/inquiries");
+  return response;
 }
 
 

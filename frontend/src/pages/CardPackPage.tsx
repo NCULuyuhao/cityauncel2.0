@@ -269,6 +269,47 @@ type GroupCardPackLock = {
   lockedAt: string;
 };
 
+type CardPackUiState = {
+  isOpened?: boolean;
+  selectedIds?: string[];
+  flippedIds?: string[];
+  lockReason?: string;
+  wheelRotation?: number;
+};
+
+function cardPackUiStorageKey(userId?: string | number | null) {
+  return `cityauncel_card_pack_ui_${userId || "guest"}`;
+}
+
+function readCardPackUiState(
+  userId?: string | number | null,
+): CardPackUiState {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(cardPackUiStorageKey(userId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as CardPackUiState;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCardPackUiState(
+  userId: string | number | null | undefined,
+  state: CardPackUiState,
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      cardPackUiStorageKey(userId),
+      JSON.stringify(state),
+    );
+  } catch {
+    // localStorage 失敗不影響主要流程。
+  }
+}
+
 function buildPackCards(group: GroupKey): PackCard[] {
   const meta = GROUP_PACK_META[group];
   return GROUP_TEXT[group].map((text, index) => ({
@@ -309,24 +350,45 @@ export default function CardPackPage({
   const meta = GROUP_PACK_META[group];
   const isGroupLeader = Boolean(currentUser.isGroupLeader);
   const cards = useMemo(() => buildPackCards(group), [group]);
-  const [openProgress, setOpenProgress] = useState(0);
+  const initialCardPackUiState = readCardPackUiState(currentUser.id);
+  const initialIsOpened = Boolean(initialCardPackUiState.isOpened);
+  const [openProgress, setOpenProgress] = useState(initialIsOpened ? 1 : 0);
   const openProgressFrameRef = useRef<number | null>(null);
-  const openProgressValueRef = useRef(0);
-  const pendingOpenProgressRef = useRef(0);
+  const openProgressValueRef = useRef(initialIsOpened ? 1 : 0);
+  const pendingOpenProgressRef = useRef(initialIsOpened ? 1 : 0);
   const [isCuttingPack, setIsCuttingPack] = useState(false);
   const [isLaunchingCards, setIsLaunchingCards] = useState(false);
-  const [isOpened, setIsOpened] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [flippedIds, setFlippedIds] = useState<Set<string>>(new Set());
+  const [isOpened, setIsOpened] = useState(initialIsOpened);
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    Array.isArray(initialCardPackUiState.selectedIds)
+      ? initialCardPackUiState.selectedIds.map(String).filter(Boolean)
+      : [],
+  );
+  const [flippedIds, setFlippedIds] = useState<Set<string>>(
+    new Set(
+      Array.isArray(initialCardPackUiState.flippedIds)
+        ? initialCardPackUiState.flippedIds.map(String).filter(Boolean)
+        : [],
+    ),
+  );
   const [isLocked, setIsLocked] = useState(false);
   const [message, setMessage] = useState("");
   const [showLockConfirmDialog, setShowLockConfirmDialog] = useState(false);
   const [fadingCardIds, setFadingCardIds] = useState<string[]>([]);
-  const [lockReason, setLockReason] = useState("");
+  const [lockReason, setLockReason] = useState(
+    typeof initialCardPackUiState.lockReason === "string"
+      ? initialCardPackUiState.lockReason
+      : "",
+  );
   const [hiddenCardIds, setHiddenCardIds] = useState<string[]>([]);
   const [disappearingCardIds, setDisappearingCardIds] = useState<string[]>([]);
   const [energyBurstActive, setEnergyBurstActive] = useState(false);
-  const [wheelRotation, setWheelRotation] = useState(0);
+  const [wheelRotation, setWheelRotation] = useState(
+    typeof initialCardPackUiState.wheelRotation === "number" &&
+      Number.isFinite(initialCardPackUiState.wheelRotation)
+      ? initialCardPackUiState.wheelRotation
+      : 0,
+  );
   const wheelStageRef = useRef<HTMLDivElement | null>(null);
   const [wheelStageSize, setWheelStageSize] = useState({
     width: 760,
@@ -360,6 +422,7 @@ export default function CardPackPage({
   const lastAppliedLockSignatureRef = useRef<string | null>(null);
   const syncGroupLockInFlightRef = useRef(false);
   const openedLockPollInFlightRef = useRef(false);
+  const lockAnimationTimeoutsRef = useRef<number[]>([]);
   const pendingGroupLockIdsRef = useRef<string[] | null>(null);
   const pendingGroupLockShouldMessageRef = useRef(true);
   const pendingIncomingGroupLockRef = useRef<{
@@ -388,6 +451,23 @@ export default function CardPackPage({
     isCuttingPackRef.current = isCuttingPack;
     isLaunchingCardsRef.current = isLaunchingCards;
   }, [isOpened, isLocked, selectedIds, isCuttingPack, isLaunchingCards]);
+
+  useEffect(() => {
+    saveCardPackUiState(currentUser.id, {
+      isOpened,
+      selectedIds,
+      flippedIds: Array.from(flippedIds),
+      lockReason,
+      wheelRotation,
+    });
+  }, [
+    currentUser.id,
+    flippedIds,
+    isOpened,
+    lockReason,
+    selectedIds,
+    wheelRotation,
+  ]);
 
   const selectedCards = cards.filter((card) => selectedIds.includes(card.id));
   const trimmedLockReason = lockReason.trim();
@@ -427,6 +507,7 @@ export default function CardPackPage({
         window.clearTimeout(launchCompleteTimeoutRef.current);
       if (deniedPackTimeoutRef.current !== null)
         window.clearTimeout(deniedPackTimeoutRef.current);
+      clearLockAnimationTimeouts();
     };
   }, []);
 
@@ -526,7 +607,25 @@ export default function CardPackPage({
     inertiaFrameRef.current = requestAnimationFrame(tick);
   }
 
+  function clearLockAnimationTimeouts() {
+    lockAnimationTimeoutsRef.current.forEach((timeoutId) =>
+      window.clearTimeout(timeoutId),
+    );
+    lockAnimationTimeoutsRef.current = [];
+  }
+
+  function scheduleLockAnimationStep(callback: () => void, delay: number) {
+    const timeoutId = window.setTimeout(() => {
+      lockAnimationTimeoutsRef.current =
+        lockAnimationTimeoutsRef.current.filter((id) => id !== timeoutId);
+      callback();
+    }, delay);
+    lockAnimationTimeoutsRef.current.push(timeoutId);
+  }
+
   function runLockedCardExitAnimation(keptCardIds: string[]) {
+    clearLockAnimationTimeouts();
+
     const keptIdSet = new Set(keptCardIds);
     const nonSelectedIds = cards
       .filter((card) => !keptIdSet.has(card.id))
@@ -539,20 +638,20 @@ export default function CardPackPage({
     setFadingCardIds([]);
     setDisappearingCardIds([]);
 
-    window.setTimeout(() => {
+    scheduleLockAnimationStep(() => {
       setFlippedIds((prev) => {
         const next = new Set(prev);
         nonSelectedIds.forEach((id) => next.add(id));
         return next;
       });
 
-      window.setTimeout(() => {
+      scheduleLockAnimationStep(() => {
         setDisappearingCardIds(nonSelectedIds);
 
-        window.setTimeout(() => {
+        scheduleLockAnimationStep(() => {
           setFadingCardIds(nonSelectedIds);
 
-          window.setTimeout(() => {
+          scheduleLockAnimationStep(() => {
             setHiddenCardIds(nonSelectedIds);
           }, 720);
         }, 240);
@@ -702,7 +801,9 @@ export default function CardPackPage({
       return;
     }
 
-    finalizeGroupLock(normalizedIds, { showMessage: shouldShowMessage });
+    finalizeGroupLock(normalizedIds, {
+      showMessage: shouldShowMessage,
+    });
   }
 
   function updateOpenProgress(
@@ -740,6 +841,7 @@ export default function CardPackPage({
   }
 
   function resetGroupLock(options: { showMessage?: boolean } = {}) {
+    clearLockAnimationTimeouts();
     stopWheelInertia();
     setIsOpened(true);
     setIsCuttingPack(false);
@@ -844,11 +946,8 @@ export default function CardPackPage({
       };
       const eventGroupId = payload.groupId ? String(payload.groupId) : null;
 
-      if (eventGroupId && resolveGroup(eventGroupId) !== group) {
-        return;
-      }
-
       if (!payload.lock) {
+        if (eventGroupId && resolveGroup(eventGroupId) !== group) return;
         lastAppliedLockAtRef.current = null;
         lastAppliedLockSignatureRef.current = null;
         resetGroupLock({ showMessage: true });
@@ -865,6 +964,8 @@ export default function CardPackPage({
 
       queueOrApplyIncomingGroupLock(eventGroupId, selectedCardIds, lockedAt, {
         showMessage: true,
+        allowGroupSwitch: true,
+        forceApply: !isGroupLeader && isOpenedRef.current,
       });
     });
     // SSE 訂閱只需要在 token 或小組切換時重建；事件處理函式會使用當前 render 的狀態，
@@ -926,6 +1027,8 @@ export default function CardPackPage({
       realtimeLockSignal.lockedAt,
       {
         showMessage: true,
+        allowGroupSwitch: true,
+        forceApply: !isGroupLeader && isOpenedRef.current,
       },
     );
     // 首頁即時通道收到組長鎖定後，直接推進目前卡包頁狀態；
@@ -960,7 +1063,9 @@ export default function CardPackPage({
     pendingIncomingGroupLockRef.current = null;
     lastAppliedLockAtRef.current = pendingLock.lockedAt;
     lastAppliedLockSignatureRef.current = pendingLockSignature;
-    applyGroupLock(normalizedIds, { showMessage: pendingLock.showMessage });
+    applyGroupLock(normalizedIds, {
+      showMessage: pendingLock.showMessage,
+    });
     // 這裡只在小組或卡牌資料切換後補套用暫存鎖定；applyGroupLock 會讀最新狀態，
     // 不應因動畫中的狀態變化反覆觸發。
     // eslint-disable-next-line react-hooks/exhaustive-deps

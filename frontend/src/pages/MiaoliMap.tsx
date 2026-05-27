@@ -4,7 +4,7 @@
  * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
  */
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mediaUrl } from "@/api/apiClient";
 import { MIAOLI_MAP_VIEW_BOX, labelPositions, regions } from "../data/miaoliMapView";
 
@@ -75,6 +75,7 @@ type RegionClueCardSide = "front" | "back";
 
 type MiaoliMapProps = {
   onBack?: () => void;
+  uiStorageKey?: string;
 
   /**
    * personal：個人自由決策
@@ -130,6 +131,33 @@ type MiaoliMapProps = {
     choice: FinalChoice | "";
   }) => void;
 };
+
+type MiaoliMapUiState = {
+  activeMode?: MapMode;
+  selectedName?: string;
+  isRegionClueModalOpen?: boolean;
+};
+
+function readMiaoliMapUiState(storageKey?: string): MiaoliMapUiState {
+  if (!storageKey || typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as MiaoliMapUiState;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMiaoliMapUiState(storageKey: string | undefined, state: MiaoliMapUiState) {
+  if (!storageKey || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(state));
+  } catch {
+    // localStorage 失敗不影響主要流程。
+  }
+}
 
 const styles = `
 :root {
@@ -1837,6 +1865,7 @@ const MapBoard = memo(function MapBoard({
 
 export default function MiaoliMap({
   onBack,
+  uiStorageKey,
   mode = "personal",
   personalData,
   groupData,
@@ -1852,9 +1881,24 @@ export default function MiaoliMap({
   isTeacher = false,
   unlockedCards = [],
 }: MiaoliMapProps) {
-  const [activeMode, setActiveMode] = useState<MapMode>(mode);
-  const [selectedName, setSelectedName] = useState("");
-  const [isRegionClueModalOpen, setIsRegionClueModalOpen] = useState(false);
+  const initialUiState = readMiaoliMapUiState(uiStorageKey);
+  const initialMode =
+    initialUiState.activeMode === "personal" ||
+    initialUiState.activeMode === "group" ||
+    initialUiState.activeMode === "class"
+      ? initialUiState.activeMode
+      : mode;
+  const hasRestoredUiStateRef = useRef(Boolean(initialUiState.activeMode || initialUiState.selectedName));
+  const didMountModeResetRef = useRef(false);
+  const [activeMode, setActiveMode] = useState<MapMode>(initialMode);
+  const [selectedName, setSelectedName] = useState(
+    typeof initialUiState.selectedName === "string"
+      ? initialUiState.selectedName
+      : "",
+  );
+  const [isRegionClueModalOpen, setIsRegionClueModalOpen] = useState(
+    Boolean(initialUiState.isRegionClueModalOpen),
+  );
   const [personalState, setPersonalState] = useState<PersonalDecisionMap>(() =>
     normalizePersonalState(initialState),
   );
@@ -1885,17 +1929,33 @@ export default function MiaoliMap({
   }, []);
 
   useEffect(() => {
+    if (hasRestoredUiStateRef.current) {
+      hasRestoredUiStateRef.current = false;
+      return;
+    }
     const timer = window.setTimeout(() => setActiveMode(mode), 0);
     return () => window.clearTimeout(timer);
   }, [mode]);
 
   useEffect(() => {
+    if (!didMountModeResetRef.current) {
+      didMountModeResetRef.current = true;
+      return;
+    }
     const timer = window.setTimeout(() => {
       setSelectedName("");
       setIsRegionClueModalOpen(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [activeMode]);
+
+  useEffect(() => {
+    saveMiaoliMapUiState(uiStorageKey, {
+      activeMode,
+      selectedName,
+      isRegionClueModalOpen,
+    });
+  }, [activeMode, isRegionClueModalOpen, selectedName, uiStorageKey]);
 
   useEffect(() => {
     const nextManualState =

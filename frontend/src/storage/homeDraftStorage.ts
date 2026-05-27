@@ -66,7 +66,15 @@ export function saveHomePageDraft(userId: number | null | undefined, draft: Omit
 export function clearHomeProgressCache() {
   if (typeof window === "undefined") return;
 
-  ["cityauncel_home_draft_", "cityauncel_inquiry_draft_"].forEach((prefix) => {
+  [
+    "cityauncel_home_draft_",
+    "cityauncel_inquiry_draft_",
+    "cityauncel_current_page_",
+    "cityauncel_home_ui_",
+    "cityauncel_map_ui_",
+    "cityauncel_card_pack_ui_",
+    "cityauncel_api_cache_v1:",
+  ].forEach((prefix) => {
     Object.keys(window.localStorage).forEach((key) => {
       if (key.startsWith(prefix)) window.localStorage.removeItem(key);
     });

@@ -11,6 +11,7 @@
 @import "./pastel-theme.css";
 @import "./responsive-layout.css";
 @import "./desktop-layout.css";
+@import "./ios-safari-fixes.css";
 
 /* iPad / PWA friendly immersive mode.
    This intentionally avoids the browser Fullscreen API on Apple touch devices,

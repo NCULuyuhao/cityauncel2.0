@@ -33,6 +33,7 @@ type UseInquirySubmissionOptions<TCard, TEvidenceCard, TSummary, TIntroStage> = 
   createFinalSummary: (token: string, summary: TSummary) => Promise<unknown>;
   saveInvestigationSummary: (token: string, summary: unknown) => Promise<unknown>;
   onSubmitSummary: (summary: TSummary) => void;
+  allowEmptyEvidenceSummary?: boolean;
 };
 
 export function useInquirySubmission<TCard, TEvidenceCard, TSummary, TIntroStage>({
@@ -56,6 +57,7 @@ export function useInquirySubmission<TCard, TEvidenceCard, TSummary, TIntroStage
   createFinalSummary,
   saveInvestigationSummary,
   onSubmitSummary,
+  allowEmptyEvidenceSummary = false,
 }: UseInquirySubmissionOptions<TCard, TEvidenceCard, TSummary, TIntroStage>) {
   const buildCurrentRoundInvestigationCards = useCallback(
     (cardOverrides: TCard[] = []) => {
@@ -126,7 +128,7 @@ export function useInquirySubmission<TCard, TEvidenceCard, TSummary, TIntroStage
 
   const submitFinalSummary = useCallback(async () => {
     if (!conclusion.trim()) return;
-    if (confirmedEvidenceCards.length === 0) return;
+    if (confirmedEvidenceCards.length === 0 && !allowEmptyEvidenceSummary) return;
 
     const introDisplay = getIntroStageDisplay(introStage);
     const currentRoundInvestigationCards = cards
@@ -160,6 +162,7 @@ export function useInquirySubmission<TCard, TEvidenceCard, TSummary, TIntroStage
     if (draftStorageKey) removeInquiryDraft(draftStorageKey);
   }, [
     cards,
+    allowEmptyEvidenceSummary,
     collectionReflectionRecords,
     conclusion,
     confirmedEvidenceCards,

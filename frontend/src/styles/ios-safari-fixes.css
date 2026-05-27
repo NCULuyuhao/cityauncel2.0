@@ -1,0 +1,154 @@
+/*
+ * iOS Safari layout safety layer.
+ * Safari on iPhone/iPad handles dynamic viewport height, fixed containers,
+ * input zooming and 3D transforms differently from desktop Chromium/Android.
+ */
+
+@supports (-webkit-touch-callout: none) {
+  html {
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
+  }
+
+  body,
+  #root {
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    position: relative;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* iOS Safari often crops or offsets fixed full-app wrappers when the URL bar
+     expands/collapses. Keep the immersive shell scrollable in document flow. */
+  .app-css-immersive-mode {
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    min-height: -webkit-fill-available !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding-top: max(env(safe-area-inset-top), 0.75rem) !important;
+    padding-right: max(env(safe-area-inset-right), 0.75rem) !important;
+    padding-bottom: max(env(safe-area-inset-bottom), 0.75rem) !important;
+    padding-left: max(env(safe-area-inset-left), 0.75rem) !important;
+  }
+
+  .min-h-screen,
+  .game-auth-shell,
+  .game-adventure-page,
+  .uiux-page-shell,
+  .inquiry-intro-shell {
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    min-height: -webkit-fill-available !important;
+  }
+
+  .game-adventure-page,
+  .uiux-page-shell,
+  .page-transition-layer {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Prevent Safari from zooming the whole page when focusing form fields. */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1rem) !important;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  button,
+  [role="button"],
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .fixed {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  .card-pack-card-rotator,
+  .card-pack-card-face {
+    -webkit-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+  }
+
+  .card-pack-card-face {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .card-pack-card-back-face {
+    -webkit-transform: rotateY(180deg) translateZ(1px);
+    transform: rotateY(180deg) translateZ(1px);
+  }
+
+  .uiux-pack-grid,
+  .uiux-dashboard-grid,
+  .game-auth-content-grid,
+  .uiux-card-grid {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .uiux-home-map-svg,
+  .miaoli-map-page svg,
+  .miaoli-map-shell svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  @media (max-width: 700px) {
+    .game-adventure-page,
+    .uiux-page-shell.game-adventure-page {
+      padding-left: max(env(safe-area-inset-left), 0.75rem) !important;
+      padding-right: max(env(safe-area-inset-right), 0.75rem) !important;
+      padding-bottom: calc(max(env(safe-area-inset-bottom), 0.75rem) + 7rem) !important;
+    }
+
+    .uiux-pack-grid {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .card-pack-card-rotator {
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+    }
+
+    .card-pack-card-front-text {
+      opacity: 1 !important;
+    }
+
+    .card-pack-card-crisp-text {
+      display: none !important;
+    }
+  }
+}

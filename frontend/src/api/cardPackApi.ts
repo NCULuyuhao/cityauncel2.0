@@ -4,7 +4,9 @@
  * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
  */
 
-import { authHeaders, requestJson } from "./apiClient";
+import { requestJson } from "./apiClient";
+import { requestJsonCacheFirst, writeApiCache } from "./apiResponseCache";
+import { requestJsonWithPending } from "./pendingWriteQueue";
 
 export type CardPackUserResponse<TUser = unknown> = {
   user?: TUser;
@@ -34,9 +36,18 @@ export function getCardPackCurrentUser<TUser = unknown>(token: string) {
 }
 
 export function getGroupCardPackLock(token: string, options: { cache?: RequestCache } = {}) {
-  return requestJson<GroupCardPackLockResponse>("/api/group-card-pack-lock", {
+  if (options.cache === "no-store") {
+    return requestJson<GroupCardPackLockResponse>("/api/group-card-pack-lock", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: options.cache,
+    }).then((response) => {
+      writeApiCache("/api/group-card-pack-lock", response);
+      return response;
+    });
+  }
+
+  return requestJsonCacheFirst<GroupCardPackLockResponse>(token, "/api/group-card-pack-lock", {
     headers: { Authorization: `Bearer ${token}` },
-    cache: options.cache,
   });
 }
 
@@ -44,9 +55,13 @@ export function saveGroupCardPackLock(
   token: string,
   payload: { selectedCardIds: string[]; reason: string },
 ) {
-  return requestJson<GroupCardPackLockResponse>("/api/group-card-pack-lock", {
+  return requestJsonWithPending<GroupCardPackLockResponse>(token, {
+    path: "/api/group-card-pack-lock",
     method: "PUT",
-    headers: authHeaders(token),
-    body: JSON.stringify(payload),
+    body: payload,
+    dedupeKey: "group-card-pack-lock",
+  }).then((response) => {
+    writeApiCache("/api/group-card-pack-lock", response);
+    return response;
   });
 }

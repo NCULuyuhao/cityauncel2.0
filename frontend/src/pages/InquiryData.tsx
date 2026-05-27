@@ -425,6 +425,7 @@ const COLLECTION_REFLECTION_BASE_MIN_LENGTH = 10;
 const COLLECTION_REFLECTION_STEP_MIN_LENGTH = 5;
 const COLLECTION_REFLECTION_MAX_MIN_LENGTH = 30;
 const CONCLUSION_MIN_LENGTH = 30;
+const NO_EVIDENCE_CONCLUSION = "本次探究無任何發現。";
 const DATA_LIST_COUNTDOWN_MS = 8 * 60 * 1000;
 const DATA_LIST_THREE_MINUTE_MS = 3 * 60 * 1000;
 const DATA_LIST_ONE_MINUTE_MS = 60 * 1000;
@@ -569,6 +570,7 @@ type InquiryDataDraft = {
   otherPurpose: string;
   readyMessage: string;
   conclusion: string;
+  dataListCountdownDeadline: number | null;
   flippedEvidenceIds: string[];
   selectedEvidenceIds: string[];
   confirmedEvidenceIds: string[];
@@ -1927,6 +1929,11 @@ function readInquiryDataDraft(
         parsed.readyMessage ?? "準備好成為一位優秀的調查員了嗎？",
       ),
       conclusion: String(parsed.conclusion ?? ""),
+      dataListCountdownDeadline: Number.isFinite(
+        Number(parsed.dataListCountdownDeadline),
+      )
+        ? Number(parsed.dataListCountdownDeadline)
+        : null,
       flippedEvidenceIds: Array.isArray(parsed.flippedEvidenceIds)
         ? parsed.flippedEvidenceIds
         : [],
@@ -4652,9 +4659,15 @@ export default function InquiryData({
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [dataListCountdownDeadline, setDataListCountdownDeadline] = useState<
     number | null
-  >(null);
+  >(
+    Number.isFinite(Number(initialDraft?.dataListCountdownDeadline))
+      ? Number(initialDraft?.dataListCountdownDeadline)
+      : null,
+  );
   const [dataListRemainingMs, setDataListRemainingMs] = useState(
-    DATA_LIST_COUNTDOWN_MS,
+    Number.isFinite(Number(initialDraft?.dataListCountdownDeadline))
+      ? Math.max(0, Number(initialDraft?.dataListCountdownDeadline) - Date.now())
+      : DATA_LIST_COUNTDOWN_MS,
   );
   const [dataListTimerNotice, setDataListTimerNotice] = useState<
     "three" | "one" | "done" | null
@@ -4913,6 +4926,10 @@ export default function InquiryData({
     activeId,
     pendingCollectionReflectionCardIds,
   });
+  const noEvidenceSummaryMode =
+    isFinished &&
+    unlockedCardsWithContent.length === 0 &&
+    confirmedEvidenceCards.length === 0;
 
   const getCollectionReflectionForCard = useCallback(
     (cardId: string) =>
@@ -4954,6 +4971,7 @@ export default function InquiryData({
       otherPurpose,
       readyMessage,
       conclusion,
+      dataListCountdownDeadline,
       flippedEvidenceIds,
       selectedEvidenceIds,
       confirmedEvidenceIds,
@@ -4983,6 +5001,7 @@ export default function InquiryData({
       developmentScore,
       earnedTitles,
       conclusion,
+      dataListCountdownDeadline,
       flippedEvidenceIds,
       flowStage,
       hasNewCollectedContent,
@@ -5377,7 +5396,7 @@ export default function InquiryData({
   } = useInquirySubmission<GameCard, GameCard, FinalSummary, InquiryIntroStageRecord | null>({
     token,
     draftStorageKey,
-    conclusion,
+    conclusion: noEvidenceSummaryMode ? NO_EVIDENCE_CONCLUSION : conclusion,
     cards,
     confirmedEvidenceCards,
     currentRoundCardIds,
@@ -5396,6 +5415,7 @@ export default function InquiryData({
     createFinalSummary,
     saveInvestigationSummary,
     onSubmitSummary,
+    allowEmptyEvidenceSummary: noEvidenceSummaryMode,
   });
 
   const submitCollectionReflection = useCallback(() => {
@@ -5615,7 +5635,13 @@ export default function InquiryData({
   );
 
   const isConclusionTooShort =
-    conclusion.trim().length <= CONCLUSION_MIN_LENGTH;
+    !noEvidenceSummaryMode && conclusion.trim().length <= CONCLUSION_MIN_LENGTH;
+
+  useEffect(() => {
+    if (!noEvidenceSummaryMode) return;
+    if (conclusion.trim() === NO_EVIDENCE_CONCLUSION) return;
+    setConclusion(NO_EVIDENCE_CONCLUSION);
+  }, [conclusion, noEvidenceSummaryMode]);
 
   const handleRequestFinishInquiry = useCallback(() => {
     const unreflectedIds = getUnreflectedCollectionCardIds(currentRoundCardIds);
@@ -5682,9 +5708,18 @@ export default function InquiryData({
       return;
     }
 
-    const deadline = Date.now() + DATA_LIST_COUNTDOWN_MS;
+    const restoredDeadline =
+      Number.isFinite(Number(initialDraft?.dataListCountdownDeadline)) &&
+      Number(initialDraft?.currentInquiryOrder || currentInquiryOrder) ===
+        currentInquiryOrder
+        ? Number(initialDraft?.dataListCountdownDeadline)
+        : null;
+    const deadline =
+      restoredDeadline !== null
+        ? restoredDeadline
+        : Date.now() + DATA_LIST_COUNTDOWN_MS;
     setDataListCountdownDeadline(deadline);
-    setDataListRemainingMs(DATA_LIST_COUNTDOWN_MS);
+    setDataListRemainingMs(Math.max(0, deadline - Date.now()));
     setDataListTimerNotice(null);
     dataListTimerWarnedRef.current = {
       three: false,
@@ -6047,7 +6082,8 @@ export default function InquiryData({
     });
   }
 
-  const isConclusionLocked = confirmedEvidenceCards.length === 0;
+  const isConclusionLocked =
+    confirmedEvidenceCards.length === 0 && !noEvidenceSummaryMode;
 
   const introSummary = getIntroStageDisplay(introStage);
 
@@ -6578,8 +6614,8 @@ export default function InquiryData({
                   })}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-[#e2d4bd] bg-white/70 p-4 font-medium text-stone-500">
-                  尚未解鎖任何數據
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 font-bold leading-7 text-amber-800">
+                  這次探究沒有解鎖任何數據卡，因此不需要選擇證據卡。系統會以「本次探究無任何發現」完成本案調查書。
                 </div>
               )}
               <div className="mt-5 flex justify-end">
@@ -6675,7 +6711,9 @@ export default function InquiryData({
                 </div>
               ) : (
                 <div className="rounded-2xl border border-[#e2d4bd] bg-white/70 p-4 font-medium text-stone-500">
-                  尚未選定證據
+                  {noEvidenceSummaryMode
+                    ? "本次探究沒有可選擇的證據卡。"
+                    : "尚未選定證據"}
                 </div>
               )}
             </section>
@@ -6696,12 +6734,20 @@ export default function InquiryData({
                     <Lock className="h-3.5 w-3.5" />
                     先選定證據才可撰寫
                   </span>
+                ) : noEvidenceSummaryMode ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black tracking-[0.12em] text-amber-800">
+                    無發現結案
+                  </span>
                 ) : null}
               </div>
 
               {isConclusionLocked ? (
                 <p className="mb-3 rounded-2xl border border-dashed border-[#b8aa94] bg-[#fffaf0]/72 px-4 py-3 text-sm font-black text-stone-600">
                   目前此區塊已鎖定，請先在第 3 題選取數據並按下「鎖定選取」。
+                </p>
+              ) : noEvidenceSummaryMode ? (
+                <p className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm font-black leading-6 text-amber-800">
+                  因為本次探究沒有解鎖任何數據卡，結論已由系統填入。請直接送出調查書完成本次探究。
                 </p>
               ) : null}
 
@@ -6714,15 +6760,19 @@ export default function InquiryData({
                     : currentCase.conclusionPrompt
                 }
                 rows={8}
-                disabled={isConclusionLocked}
+                disabled={isConclusionLocked || noEvidenceSummaryMode}
                 className={`w-full rounded-2xl border p-4 text-base font-medium leading-7 outline-none transition ${
-                  isConclusionLocked
+                  isConclusionLocked || noEvidenceSummaryMode
                     ? "cursor-not-allowed border-dashed border-[#b8aa94] bg-[repeating-linear-gradient(-45deg,rgba(120,113,108,0.10)_0_10px,rgba(255,250,240,0.78)_10px_20px)] text-stone-500 placeholder:text-stone-500"
                     : "border-[#d8cbb3] bg-white/78 text-stone-800 focus:border-[#9b7b55] focus:ring-4 focus:ring-[#d8cbb3]/35"
                 }`}
               />
               <div className="mt-2 flex items-center justify-between gap-3 text-xs font-black text-stone-500">
-                <span>結論撰寫須至少 {CONCLUSION_MIN_LENGTH} 字以上</span>
+                <span>
+                  {noEvidenceSummaryMode
+                    ? "無發現結案不需補寫字數"
+                    : `結論撰寫須至少 ${CONCLUSION_MIN_LENGTH} 字以上`}
+                </span>
                 <span
                   className={
                     isConclusionTooShort && !isConclusionLocked
@@ -6739,7 +6789,8 @@ export default function InquiryData({
                 type="button"
                 onClick={() => setShowSubmitConfirm(true)}
                 disabled={
-                  isConclusionTooShort || confirmedEvidenceCards.length === 0
+                  isConclusionTooShort ||
+                  (confirmedEvidenceCards.length === 0 && !noEvidenceSummaryMode)
                 }
                 className="rounded-2xl border-2 border-[#2f241b] bg-gradient-to-br from-[#70513b] to-[#3f3023] px-6 py-4 font-black text-[#fffaf0] shadow-[0_8px_0_rgba(47,36,27,0.32),0_14px_28px_rgba(47,36,27,0.20)] hover:from-[#806048] hover:to-[#4a382b] disabled:cursor-not-allowed disabled:border-[#b8aa94] disabled:bg-none disabled:bg-[#d8cbb3] disabled:text-[#7a6754] disabled:opacity-100"
               >

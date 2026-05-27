@@ -55,6 +55,8 @@ import {
   readHomePageDraft,
   saveHomePageDraft,
 } from "../storage/homeDraftStorage";
+import { clearApiCacheForCurrentUser } from "../api/apiResponseCache";
+import { flushPendingWrites } from "../api/pendingWriteQueue";
 
 import { normalizeActivityLogPayload } from "@/utils/payloadNormalization";
 import { canUseBrowserFullscreen, shouldUseCssImmersiveMode } from "@/utils/displayMode";
@@ -96,6 +98,96 @@ type Page =
   | "teacherStudentData";
 type MapChoice = "保育" | "開發" | "我不知道";
 type MapState = Record<string, MapChoice>;
+
+const RESTORABLE_PAGES = new Set<Page>([
+  "home",
+  "cards",
+  "cardPack",
+  "map",
+  "ending",
+  "teacherGroups",
+  "teacherStudentData",
+]);
+
+function pageStorageKey(userId?: string | number | null) {
+  return `cityauncel_current_page_${userId || "guest"}`;
+}
+
+function isRestorablePage(value: unknown): value is Page {
+  return typeof value === "string" && RESTORABLE_PAGES.has(value as Page);
+}
+
+function readStoredPage(userId?: string | number | null): Page {
+  if (typeof window === "undefined") return "home";
+  try {
+    const value = window.localStorage.getItem(pageStorageKey(userId));
+    return isRestorablePage(value) ? value : "home";
+  } catch {
+    return "home";
+  }
+}
+
+function saveStoredPage(userId: string | number | null | undefined, page: Page) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(pageStorageKey(userId), page);
+  } catch {
+    // localStorage 失敗不影響主要流程。
+  }
+}
+
+function clearStoredPage(userId?: string | number | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(pageStorageKey(userId));
+  } catch {
+    // localStorage 失敗不影響主要流程。
+  }
+}
+
+type HomeUiState = {
+  activeInquiryRecordOrder?: number | null;
+  reportPageIndex?: number;
+  mapPreviewPageIndex?: number;
+  openedReportIndex?: number | null;
+};
+
+function homeUiStorageKey(userId?: string | number | null) {
+  return `cityauncel_home_ui_${userId || "guest"}`;
+}
+
+function readHomeUiState(userId?: string | number | null): HomeUiState {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(homeUiStorageKey(userId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as HomeUiState;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveHomeUiState(
+  userId: string | number | null | undefined,
+  state: HomeUiState,
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(homeUiStorageKey(userId), JSON.stringify(state));
+  } catch {
+    // localStorage 失敗不影響主要流程。
+  }
+}
+
+function clearHomeUiState(userId?: string | number | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(homeUiStorageKey(userId));
+  } catch {
+    // localStorage 失敗不影響主要流程。
+  }
+}
 
 function stableMapText(map: MapState) {
   return JSON.stringify(
@@ -1028,8 +1120,18 @@ export default function HomePage() {
       };
 
   const initialHomeDraft = readHomePageDraft(currentUser?.id);
+  const initialHomeUiState = readHomeUiState(currentUser?.id);
   const [unlockedCards, setUnlockedCards] = useState<UnlockedCardData[]>([]);
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPage] = useState<Page>(() => {
+    const storedPage = readStoredPage(currentUser?.id);
+    if (
+      currentUser?.role !== "teacher" &&
+      (storedPage === "teacherGroups" || storedPage === "teacherStudentData")
+    ) {
+      return "home";
+    }
+    return storedPage;
+  });
   const [orientationMainChoice, setOrientationMainChoice] = useState(
     initialHomeDraft?.orientationMainChoice ?? "",
   );
@@ -1039,7 +1141,12 @@ export default function HomePage() {
   const [finalSummaries, setFinalSummaries] = useState<FinalSummary[]>([]);
   const [activeInquiryRecordOrder, setActiveInquiryRecordOrder] = useState<
     number | null
-  >(null);
+  >(
+    initialHomeUiState.activeInquiryRecordOrder != null &&
+      Number.isFinite(Number(initialHomeUiState.activeInquiryRecordOrder))
+      ? Number(initialHomeUiState.activeInquiryRecordOrder)
+      : null,
+  );
   const [isInquiryTaskOpen, setIsInquiryTaskOpen] = useState(true);
   const [inquiryLockHint, setInquiryLockHint] = useState(false);
   const [isMapTaskOpen, setIsMapTaskOpen] = useState(false);
@@ -1064,8 +1171,16 @@ export default function HomePage() {
   const [draftSuspectVotes, setDraftSuspectVotes] = useState<string[]>([]);
   const [suspectVoteMessage, setSuspectVoteMessage] = useState("");
   const [isSubmittingSuspectVote, setIsSubmittingSuspectVote] = useState(false);
-  const [reportPageIndex, setReportPageIndex] = useState(0);
-  const [mapPreviewPageIndex, setMapPreviewPageIndex] = useState(0);
+  const [reportPageIndex, setReportPageIndex] = useState(
+    Number.isFinite(Number(initialHomeUiState.reportPageIndex))
+      ? Math.max(0, Number(initialHomeUiState.reportPageIndex))
+      : 0,
+  );
+  const [mapPreviewPageIndex, setMapPreviewPageIndex] = useState(
+    Number.isFinite(Number(initialHomeUiState.mapPreviewPageIndex))
+      ? Math.max(0, Number(initialHomeUiState.mapPreviewPageIndex))
+      : 0,
+  );
   const [reportDragOffset, setReportDragOffset] = useState(0);
   const [mapDragOffset, setMapDragOffset] = useState(0);
   const reportDragStartXRef = useRef<number | null>(null);
@@ -1079,7 +1194,10 @@ export default function HomePage() {
   const [pendingReportReveal, setPendingReportReveal] =
     useState<PendingReportReveal | null>(null);
   const [openedReportIndex, setOpenedReportIndex] = useState<number | null>(
-    null,
+    initialHomeUiState.openedReportIndex != null &&
+      Number.isFinite(Number(initialHomeUiState.openedReportIndex))
+      ? Math.max(0, Number(initialHomeUiState.openedReportIndex))
+      : null,
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [earnedHomeTitles, setEarnedHomeTitles] = useState<TitleReward[]>([]);
@@ -1114,6 +1232,35 @@ export default function HomePage() {
   const latestGroupMapRequestIdRef = useRef(0);
   const activeFinalSettlementKeyRef = useRef<string | null>(null);
   const isTeacher = currentUser?.role === "teacher";
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    if (
+      !isTeacher &&
+      (page === "teacherGroups" || page === "teacherStudentData")
+    ) {
+      setPage("home");
+      saveStoredPage(currentUser.id, "home");
+      return;
+    }
+    saveStoredPage(currentUser.id, page);
+  }, [currentUser?.id, isTeacher, page]);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    saveHomeUiState(currentUser.id, {
+      activeInquiryRecordOrder,
+      reportPageIndex,
+      mapPreviewPageIndex,
+      openedReportIndex,
+    });
+  }, [
+    activeInquiryRecordOrder,
+    currentUser?.id,
+    mapPreviewPageIndex,
+    openedReportIndex,
+    reportPageIndex,
+  ]);
 
   const forceFinalEndingPage = useCallback(() => {
     window.history.replaceState({ page: "ending" }, "", window.location.href);
@@ -1417,7 +1564,11 @@ export default function HomePage() {
   useEffect(() => {
     let restoreHomeTimer: number | null = null;
     if (!finalDecisionSettlement.isFinalized) {
-      window.history.replaceState({ page: "home" }, "", window.location.href);
+      window.history.replaceState(
+        { page: page === "ending" ? "home" : page },
+        "",
+        window.location.href,
+      );
       if (page === "ending") {
         restoreHomeTimer = window.setTimeout(() => setPage("home"), 0);
       }
@@ -1517,6 +1668,28 @@ export default function HomePage() {
       window.clearInterval(timer);
     };
   }, [syncCurrentUser, token]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const flush = () => {
+      void flushPendingWrites(token);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") flush();
+    };
+
+    flush();
+    window.addEventListener("online", flush);
+    window.addEventListener("focus", flush);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("online", flush);
+      window.removeEventListener("focus", flush);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [token]);
 
   const loadGroupAndClassMapData = useCallback(async () => {
     if (!token) return;
@@ -1680,8 +1853,19 @@ export default function HomePage() {
         // 後端資料庫是探究調查書的唯一資料來源；避免 localStorage 舊草稿覆蓋正確資料。
         setFinalSummaries(serverFinalSummaries);
         // 登入後預設顯示最新一份探究調查書；沒有報告時維持在「建立新的探究探究調查書」。
+        const restoredReportPageIndex = Number(
+          readHomeUiState(userId).reportPageIndex,
+        );
         setReportPageIndex(
-          serverFinalSummaries.length > 0 ? serverFinalSummaries.length - 1 : 0,
+          Number.isFinite(restoredReportPageIndex)
+            ? clamp(
+                restoredReportPageIndex,
+                0,
+                Math.max(0, serverFinalSummaries.length),
+              )
+            : serverFinalSummaries.length > 0
+              ? serverFinalSummaries.length - 1
+              : 0,
         );
         setEarnedHomeTitles(serverEarnedTitles);
         setUnlockedCards(serverUnlockedCards);
@@ -1931,12 +2115,46 @@ export default function HomePage() {
     reportDragStartXRef.current = null;
     reportPressReportIndexRef.current = null;
     reportDidDragRef.current = false;
+    const restoredPage = readStoredPage(user.id);
+    const restoredHomeUiState = readHomeUiState(user.id);
+    setActiveInquiryRecordOrder(
+      restoredHomeUiState.activeInquiryRecordOrder != null &&
+        Number.isFinite(Number(restoredHomeUiState.activeInquiryRecordOrder))
+        ? Number(restoredHomeUiState.activeInquiryRecordOrder)
+        : null,
+    );
+    setReportPageIndex(
+      Number.isFinite(Number(restoredHomeUiState.reportPageIndex))
+        ? Math.max(0, Number(restoredHomeUiState.reportPageIndex))
+        : 0,
+    );
+    setMapPreviewPageIndex(
+      Number.isFinite(Number(restoredHomeUiState.mapPreviewPageIndex))
+        ? Math.max(0, Number(restoredHomeUiState.mapPreviewPageIndex))
+        : 0,
+    );
+    setOpenedReportIndex(
+      restoredHomeUiState.openedReportIndex != null &&
+        Number.isFinite(Number(restoredHomeUiState.openedReportIndex))
+        ? Math.max(0, Number(restoredHomeUiState.openedReportIndex))
+        : null,
+    );
+    setPage(
+      user.role !== "teacher" &&
+        (restoredPage === "teacherGroups" ||
+          restoredPage === "teacherStudentData")
+        ? "home"
+        : restoredPage,
+    );
     setToken(nextToken);
     setCurrentUser(user);
     saveAuthSession(nextToken, user);
   }
 
   function handleLogout() {
+    clearStoredPage(currentUser?.id);
+    clearHomeUiState(currentUser?.id);
+    clearApiCacheForCurrentUser();
     clearAuthSession();
     isLoadingUserDataRef.current = false;
     hasLoadedUserDataRef.current = false;
@@ -3219,6 +3437,7 @@ export default function HomePage() {
     if (page === "map") {
       return (
         <MiaoliMap
+          uiStorageKey={`cityauncel_map_ui_${currentUser?.id || "guest"}`}
           onBack={() => goPage("home")}
           groupName={currentUser?.groupName ?? null}
           isGroupLeader={Boolean(currentUser?.isGroupLeader)}
