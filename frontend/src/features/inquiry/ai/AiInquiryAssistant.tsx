@@ -656,6 +656,7 @@ export default function AiInquiryAssistant({
     setTurnsInCurrentHelp(0);
     setChecksInCurrentHelp(0);
     setGapScope(null);
+    setStatusMessage("");
     setHelpCredits((prev) => Math.max(0, prev - 1));
     setMessages((prev) => (preserveHistory ? [...prev, ...openingMessages] : openingMessages));
     void logAiHelperEvent({
@@ -700,9 +701,9 @@ export default function AiInquiryAssistant({
     window.setTimeout(() => setBlockedNeed(null), 620);
   }
 
-  function quietlyBlockNeed(needType: AiNeedType) {
+  function showStatusOnlyBlockedNeed(needType: AiNeedType, message: string) {
     setBlockedNeed(needType);
-    setStatusMessage("");
+    setStatusMessage(message);
     window.setTimeout(() => setBlockedNeed(null), 620);
   }
 
@@ -723,7 +724,7 @@ export default function AiInquiryAssistant({
 
     if (needType === "reason") {
       if (!isCheckpoint || !hasCheckpointCards) {
-        quietlyBlockNeed(needType);
+        showStatusOnlyBlockedNeed(needType, COLLECTION_CHECKPOINT_ONLY_MESSAGE);
         return;
       }
     }
@@ -739,7 +740,7 @@ export default function AiInquiryAssistant({
         Number(runtimeContext.collectionReflectionMinLength) || 1,
       );
       if (!isCheckpoint) {
-        quietlyBlockNeed(needType);
+        showStatusOnlyBlockedNeed(needType, COLLECTION_CHECKPOINT_ONLY_MESSAGE);
         return;
       }
       if (!reasonText || reasonText.length < minLength) {
