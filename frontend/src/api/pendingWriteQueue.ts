@@ -113,6 +113,15 @@ export function removePendingWrite(id: string) {
   writeQueue(readQueue().filter((item) => item.id !== id));
 }
 
+export function removePendingWritesByDedupeKey(dedupeKey: string) {
+  const ownerKey = currentQueueOwnerKey();
+  writeQueue(
+    readQueue().filter(
+      (item) => item.dedupeKey !== dedupeKey || (item.ownerKey && item.ownerKey !== ownerKey),
+    ),
+  );
+}
+
 function markPendingWriteFailed(id: string, error: unknown) {
   const queue = readQueue();
   const index = queue.findIndex((item) => item.id === id);

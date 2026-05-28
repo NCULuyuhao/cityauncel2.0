@@ -15,14 +15,17 @@
 */
 @layer base {
   html {
-    overflow-y: auto;
-    scrollbar-gutter: stable both-edges;
+    /* 桌機版永遠保留右側捲軸槽，避免從探究頁回首頁時因 scrollbar 出現/消失造成整頁左右位移。
+       不使用 both-edges，避免左側多出一條空白。 */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
   }
 
   body,
   #root {
     overflow-x: hidden;
     overflow-y: auto;
+    scrollbar-gutter: stable;
   }
 
   body {

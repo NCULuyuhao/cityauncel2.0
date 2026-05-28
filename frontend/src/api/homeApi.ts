@@ -5,7 +5,7 @@
  */
 
 import { authHeaders, requestJson } from "./apiClient";
-import { removeApiCache, requestJsonCacheFirst, writeApiCache } from "./apiResponseCache";
+import { removeApiCache } from "./apiResponseCache";
 import { requestJsonWithPending } from "./pendingWriteQueue";
 
 export type ApiRecord = Record<string, unknown>;
@@ -17,6 +17,25 @@ export type GroupMemberApi = {
   name?: string;
   email?: string;
   isGroupLeader?: boolean;
+  isPersonalMapLocked?: boolean;
+  personalMapLockedAt?: string | null;
+};
+export type MapLockStatusApi = {
+  userId?: number | string;
+  groupId?: string;
+  username?: string;
+  name?: string;
+  groupName?: string;
+  isGroupLeader?: boolean;
+  isLocked: boolean;
+  lockedAt?: string | null;
+  lockedByUserId?: number | string | null;
+};
+export type MapLockSummaryApi = {
+  lockedCount: number;
+  totalCount: number;
+  unlockedCount: number;
+  allLocked?: boolean;
 };
 export type OpenStatusApi = ApiRecord & { isOpen?: boolean };
 export type ScreenLockStatusApi = ApiRecord & { isLocked?: boolean; locked?: boolean };
@@ -59,6 +78,13 @@ export type GroupPersonalMapsApi = ApiRecord & {
   members?: GroupMemberApi[];
   groupId?: string | null;
   groupName?: string | null;
+  personalLockStatuses?: MapLockStatusApi[];
+  personalLockSummary?: MapLockSummaryApi;
+  isGroupReady?: boolean;
+  isMyPersonalLocked?: boolean;
+  isGroupMapLocked?: boolean;
+  groupMapLockedAt?: string | null;
+  groupMapLockedByUserId?: number | string | null;
 };
 export type RegionDecisionValueApi = MapChoiceApi | "" | { result: MapChoiceApi | ""; locked: boolean; isTie: boolean; conserveCount: number; developCount: number; finalChoice?: MapChoiceApi };
 export type RegionDecisionMapApi = Record<string, RegionDecisionValueApi>;
@@ -67,8 +93,15 @@ export type ClassGroupDecisionsApi = ApiRecord & {
   groupData?: ClassGroupDecisionItemApi[];
   groupResults?: ClassGroupDecisionItemApi[];
   classFinalChoices?: MapStateApi;
+  groupLockStatuses?: MapLockStatusApi[];
+  groupLockSummary?: MapLockSummaryApi;
+  allGroupsLocked?: boolean;
 };
-export type UserMapApi = ApiRecord & { mapState?: MapStateApi };
+export type UserMapApi = ApiRecord & {
+  mapState?: MapStateApi;
+  isPersonalLocked?: boolean;
+  personalLockedAt?: string | null;
+};
 
 export function getMe(token: string) {
   return requestJson<{ user?: unknown }>("/api/me", {
@@ -77,19 +110,31 @@ export function getMe(token: string) {
 }
 
 export function getGroupPersonalMaps(token: string) {
-  return requestJsonCacheFirst<GroupPersonalMapsApi>(token, "/api/group-personal-maps");
+  return requestJson<GroupPersonalMapsApi>("/api/group-personal-maps", {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
 }
 
 export function getClassGroupDecisions(token: string) {
-  return requestJsonCacheFirst<ClassGroupDecisionsApi>(token, "/api/class-group-decisions");
+  return requestJson<ClassGroupDecisionsApi>("/api/class-group-decisions", {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
 }
 
 export function getClassFinalDecisions(token: string) {
-  return requestJsonCacheFirst<MapStateApi>(token, "/api/class-final-decisions");
+  return requestJson<MapStateApi>("/api/class-final-decisions", {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
 }
 
 export function getUserMap(token: string) {
-  return requestJsonCacheFirst<UserMapApi>(token, "/api/user-map");
+  return requestJson<UserMapApi>("/api/user-map", {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
 }
 
 export async function saveUserMapState(token: string, mapState: unknown) {
@@ -99,8 +144,34 @@ export async function saveUserMapState(token: string, mapState: unknown) {
     body: { mapState },
     dedupeKey: "user-map",
   });
-  writeApiCache("/api/user-map", { mapState });
+  removeApiCache("/api/user-map");
   removeApiCache("/api/group-personal-maps");
+  return response;
+}
+
+export async function lockUserMap(token: string, mapState?: unknown) {
+  const response = await requestJsonWithPending<ApiRecord>(token, {
+    path: "/api/user-map/lock",
+    method: "POST",
+    body: mapState ? { mapState } : {},
+    dedupeKey: "user-map-lock",
+  });
+  removeApiCache("/api/user-map");
+  removeApiCache("/api/group-personal-maps");
+  removeApiCache("/api/class-group-decisions");
+  return response;
+}
+
+export async function lockGroupMap(token: string) {
+  const response = await requestJsonWithPending<ApiRecord>(token, {
+    path: "/api/group-map/lock",
+    method: "POST",
+    body: {},
+    dedupeKey: "group-map-lock",
+  });
+  removeApiCache("/api/group-personal-maps");
+  removeApiCache("/api/class-group-decisions");
+  removeApiCache("/api/class-final-decisions");
   return response;
 }
 

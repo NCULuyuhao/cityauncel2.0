@@ -28,7 +28,7 @@ function publishRealtimeEvent(type, payload = {}) {
 }
 
 function closeStaleClientsForUser(userId, keepClientId) {
-  const maxConnections = readPositiveIntegerEnv("REALTIME_MAX_CONNECTIONS_PER_USER", 3);
+  const maxConnections = readPositiveIntegerEnv("REALTIME_MAX_CONNECTIONS_PER_USER", 10);
   const clients = [...realtimeClients.entries()]
     .filter(([, client]) => client.userId === userId)
     .sort((a, b) => a[1].connectedAt - b[1].connectedAt);
@@ -90,6 +90,9 @@ function registerRealtimeRoutes(app) {
       });
       closeStaleClientsForUser(userId, clientId);
 
+      // 提醒瀏覽器原生 EventSource 即使自動重連，也不要用過短間隔。
+      // 前端另外有受控重連；這裡是第二層保護，避免 localhost 連線風暴。
+      res.write("retry: 10000\n");
       res.write(`data: ${JSON.stringify({
         type: "connected",
         payload: { clientId },

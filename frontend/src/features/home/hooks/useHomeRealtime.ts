@@ -1,11 +1,11 @@
 /**
  * CityAuncel maintainability notes
  * 檔案用途：首頁功能 hook useHomeRealtime，封裝首頁狀態、即時事件或教師控制資料。
- * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
+ * 維護重點：SSE 連線只應跟 token 綁定；會變動的使用者/小組/回呼狀態一律透過 ref 讀取，避免資料同步時反覆斷線重連。
  */
 
-import { useEffect } from "react";
-import { subscribeRealtime } from "@/api/realtime";
+import { useEffect, useRef } from "react";
+import { subscribeRealtime, type RealtimeConnectionStatus } from "@/api/realtime";
 import type { FinalDecisionSettlementApi, MapChoiceApi, VotingStatusApi } from "@/api/homeApi";
 
 type MutableRef<T> = { current: T };
@@ -14,6 +14,12 @@ type HomeRealtimeUser = {
   id?: number | string | null;
   role?: string | null;
   groupId?: string | null;
+};
+
+type MapSyncStatus = {
+  state: "live" | "syncing" | "synced" | "unstable";
+  text: string;
+  updatedAt?: number;
 };
 
 type UseHomeRealtimeOptions = {
@@ -29,6 +35,8 @@ type UseHomeRealtimeOptions = {
     districtName: string;
     choice: MapChoiceApi | "";
   }) => void;
+  applyRealtimeMapLockSnapshot: (payload: Record<string, unknown>) => void;
+  updateMapSyncStatus: (status: MapSyncStatus) => void;
   handleRealtimeGroupCardPackLock: (payload: {
     groupId?: string | null;
     lock?: {
@@ -36,7 +44,7 @@ type UseHomeRealtimeOptions = {
       lockedAt?: string | null;
     } | null;
   }) => void;
-  scheduleGroupAndClassMapRefresh: () => void;
+  scheduleGroupAndClassMapRefresh: (delayMs?: number) => void;
   clearHandledFinalSettlementKey: (userId?: number | string | null) => void;
   clearHomeProgressCache: () => void;
   stableMapText: (map: Record<string, never>) => string;
@@ -51,33 +59,62 @@ type UseHomeRealtimeOptions = {
   setIsStudentScreenLocked: (isLocked: boolean) => void;
 };
 
-export function useHomeRealtime({
-  token,
-  currentUser,
-  isTeacher,
-  loadVotingStatus,
-  applyVotingStatus,
-  handleFinalSettlementForStudent,
-  applyRealtimeFinalMapDecision,
-  handleRealtimeGroupCardPackLock,
-  scheduleGroupAndClassMapRefresh,
-  clearHandledFinalSettlementKey,
-  clearHomeProgressCache,
-  stableMapText,
-  activeFinalSettlementKeyRef,
-  lastSavedMapTextRef,
-  resetAfterDatabaseCleared,
-  setFinalDecisionSettlement,
-  setFinalEndingCountdown,
-  setIsCardPackOpen,
-  setIsInquiryTaskOpen,
-  setIsMapTaskOpen,
-  setIsStudentScreenLocked,
-}: UseHomeRealtimeOptions) {
-  useEffect(() => {
-    if (!token || !currentUser?.id) return;
+function normalizeId(value: unknown) {
+  return value === null || value === undefined || value === "" ? null : String(value);
+}
 
-    return subscribeRealtime(token, (event) => {
+export function useHomeRealtime(options: UseHomeRealtimeOptions) {
+  const latestRef = useRef(options);
+
+  useEffect(() => {
+    latestRef.current = options;
+  });
+
+  useEffect(() => {
+    if (!options.token) return;
+
+    const handleConnectionStatus = (status: RealtimeConnectionStatus) => {
+      const { updateMapSyncStatus } = latestRef.current;
+      if (status === "open") {
+        updateMapSyncStatus({ state: "live", text: "即時同步中", updatedAt: Date.now() });
+        return;
+      }
+      if (status === "connecting") {
+        updateMapSyncStatus({ state: "syncing", text: "正在建立即時同步…", updatedAt: Date.now() });
+        return;
+      }
+      updateMapSyncStatus({ state: "unstable", text: "連線不穩，正在用備援同步", updatedAt: Date.now() });
+    };
+
+    return subscribeRealtime(options.token, (event) => {
+      const latest = latestRef.current;
+      const {
+        currentUser,
+        isTeacher,
+        loadVotingStatus,
+        applyVotingStatus,
+        handleFinalSettlementForStudent,
+        applyRealtimeFinalMapDecision,
+        applyRealtimeMapLockSnapshot,
+        updateMapSyncStatus,
+        handleRealtimeGroupCardPackLock,
+        scheduleGroupAndClassMapRefresh,
+        clearHandledFinalSettlementKey,
+        clearHomeProgressCache,
+        stableMapText,
+        activeFinalSettlementKeyRef,
+        lastSavedMapTextRef,
+        resetAfterDatabaseCleared,
+        setFinalDecisionSettlement,
+        setFinalEndingCountdown,
+        setIsCardPackOpen,
+        setIsInquiryTaskOpen,
+        setIsMapTaskOpen,
+        setIsStudentScreenLocked,
+      } = latest;
+
+      if (!currentUser?.id) return;
+
       const payload = (event.payload || {}) as Record<string, unknown> & {
         isOpen?: boolean;
         isLocked?: boolean;
@@ -86,6 +123,8 @@ export function useHomeRealtime({
         voting?: VotingStatusApi;
         groupId?: unknown;
         lock?: unknown;
+        scope?: unknown;
+        affectedGroupIds?: unknown;
       };
 
       if (event.type === "inquiry-task-status") {
@@ -137,12 +176,11 @@ export function useHomeRealtime({
         return;
       }
       if (event.type === "group-card-pack-lock") {
-        const selectedCardIds = Array.isArray(
-          (payload.lock as { selectedCardIds?: unknown[] } | null | undefined)?.selectedCardIds,
-        )
-          ? (payload.lock as { selectedCardIds?: unknown[] }).selectedCardIds?.map(String)
+        const lockPayload = payload.lock as { selectedCardIds?: unknown[]; lockedAt?: unknown } | null | undefined;
+        const selectedCardIds = Array.isArray(lockPayload?.selectedCardIds)
+          ? lockPayload.selectedCardIds.map(String)
           : [];
-        const lockedAtValue = (payload.lock as { lockedAt?: unknown } | null | undefined)?.lockedAt;
+        const lockedAtValue = lockPayload?.lockedAt;
         handleRealtimeGroupCardPackLock({
           groupId: payload.groupId ? String(payload.groupId) : null,
           lock: payload.lock
@@ -154,10 +192,31 @@ export function useHomeRealtime({
         });
         return;
       }
+      if (event.type === "map-lock-updated") {
+        const scope = typeof payload.scope === "string" ? payload.scope : "";
+        const eventGroupId = normalizeId(payload.groupId);
+        const currentGroupId = normalizeId(currentUser.groupId);
+        const affectedGroupIds = Array.isArray(payload.affectedGroupIds)
+          ? payload.affectedGroupIds.map(String)
+          : [];
+        const isRelevantPersonalLock = scope === "personal" && (!eventGroupId || eventGroupId === currentGroupId || isTeacher);
+        const isRelevantAssignment = scope === "assignment" && (isTeacher || !currentGroupId || affectedGroupIds.includes(currentGroupId));
+        const isRelevantClassLevelLock = scope === "group" || scope === "class";
+
+        if (!isRelevantPersonalLock && !isRelevantAssignment && !isRelevantClassLevelLock) {
+          return;
+        }
+
+        applyRealtimeMapLockSnapshot(payload);
+        updateMapSyncStatus({ state: "synced", text: "剛剛已更新", updatedAt: Date.now() });
+        scheduleGroupAndClassMapRefresh(scope === "personal" || scope === "group" ? 80 : 150);
+        return;
+      }
       if (event.type === "map-user-updated") {
         const eventGroupId = payload.groupId ? String(payload.groupId) : null;
-        if (!eventGroupId || eventGroupId === currentUser.groupId) {
-          scheduleGroupAndClassMapRefresh();
+        if (!eventGroupId || eventGroupId === currentUser.groupId || isTeacher) {
+          updateMapSyncStatus({ state: "syncing", text: "同步地圖資料中…", updatedAt: Date.now() });
+          scheduleGroupAndClassMapRefresh(150);
         }
         return;
       }
@@ -170,7 +229,7 @@ export function useHomeRealtime({
 
         if (districtName && event.type === "map-group-final-updated") {
           const eventGroupId = payload.groupId ? String(payload.groupId) : null;
-          if (!eventGroupId || eventGroupId === currentUser.groupId) {
+          if (!eventGroupId || eventGroupId === currentUser.groupId || isTeacher) {
             applyRealtimeFinalMapDecision({
               mode: "group",
               groupId: eventGroupId,
@@ -188,30 +247,9 @@ export function useHomeRealtime({
           });
         }
 
-        scheduleGroupAndClassMapRefresh();
+        updateMapSyncStatus({ state: "synced", text: "剛剛已更新", updatedAt: Date.now() });
+        scheduleGroupAndClassMapRefresh(80);
       }
-    });
-  }, [
-    activeFinalSettlementKeyRef,
-    applyVotingStatus,
-    applyRealtimeFinalMapDecision,
-    handleRealtimeGroupCardPackLock,
-    clearHandledFinalSettlementKey,
-    clearHomeProgressCache,
-    currentUser,
-    handleFinalSettlementForStudent,
-    isTeacher,
-    lastSavedMapTextRef,
-    loadVotingStatus,
-    resetAfterDatabaseCleared,
-    scheduleGroupAndClassMapRefresh,
-    setFinalDecisionSettlement,
-    setFinalEndingCountdown,
-    setIsCardPackOpen,
-    setIsInquiryTaskOpen,
-    setIsMapTaskOpen,
-    setIsStudentScreenLocked,
-    stableMapText,
-    token,
-  ]);
+    }, handleConnectionStatus);
+  }, [options.token]);
 }

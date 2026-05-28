@@ -52,6 +52,84 @@ function getDisplayTitle(card: GameCardGridCard) {
   return card.unlocked ? card.revealedTitle : card.title;
 }
 
+const preloadedCardImageUrls = new Set<string>();
+
+function preloadCardImage(src: string) {
+  if (!src || preloadedCardImageUrls.has(src)) return;
+  preloadedCardImageUrls.add(src);
+
+  const image = new Image();
+  image.decoding = "async";
+  image.src = src;
+
+  if (typeof image.decode === "function") {
+    image.decode().catch(() => {
+      // 圖片預解碼失敗時交給瀏覽器正常載入，不中斷卡牌顯示。
+    });
+  }
+}
+
+type IdleWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (
+    callback: IdleRequestCallback,
+    options?: IdleRequestOptions,
+  ) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
+function scheduleCardImagePreload(cards: GameCardGridCard[]) {
+  const idleWindow = window as IdleWindow;
+  const imageSources = Array.from(
+    new Set(
+      cards
+        .filter((card) => !shouldUseWaterLiveSnapshotPreview(card))
+        .map((card) => card.imageSrc)
+        .filter(Boolean),
+    ),
+  );
+  let index = 0;
+  let cancelled = false;
+  let idleId: number | null = null;
+  let timeoutId: number | null = null;
+
+  const runBatch = () => {
+    if (cancelled) return;
+
+    const end = Math.min(index + 6, imageSources.length);
+    while (index < end) {
+      preloadCardImage(imageSources[index]);
+      index += 1;
+    }
+
+    if (index < imageSources.length) {
+      scheduleNextBatch();
+    }
+  };
+
+  const scheduleNextBatch = () => {
+    if (cancelled) return;
+
+    if (typeof idleWindow.requestIdleCallback === "function") {
+      idleId = idleWindow.requestIdleCallback(runBatch, { timeout: 600 });
+      return;
+    }
+
+    timeoutId = globalThis.setTimeout(runBatch, 80);
+  };
+
+  scheduleNextBatch();
+
+  return () => {
+    cancelled = true;
+    if (idleId !== null && typeof idleWindow.cancelIdleCallback === "function") {
+      idleWindow.cancelIdleCallback(idleId);
+    }
+    if (timeoutId !== null) {
+      globalThis.clearTimeout(timeoutId);
+    }
+  };
+}
+
 export const GameCardGrid = memo(function GameCardGrid({
   categoryCards,
   activeId,
@@ -71,7 +149,6 @@ export const GameCardGrid = memo(function GameCardGrid({
   categoryFlipKey: CategoryKey | null;
   isActive: boolean;
 }) {
-  const [isRevealReady, setIsRevealReady] = useState(false);
   const [regionFilter, setRegionFilter] = useState<CardRegionFilter>([]);
   const [questionFilter, setQuestionFilter] = useState<CardQuestionFilter>([]);
 
@@ -100,30 +177,12 @@ export const GameCardGrid = memo(function GameCardGrid({
     setQuestionFilter([]);
   }, [activeCategoryMeta.key]);
   useEffect(() => {
-    if (!isActive) {
-      setIsRevealReady(false);
-      return;
-    }
+    if (!isActive) return undefined;
 
-    // 分類第一次被開啟後就標記為已載入。卡牌 rows 不再被清空，
-    // 之後切回同分類只做可見狀態切換，不會重新掛載造成白屏感。
-    // 先讓目前分類進入正常版面流，再於下一個 frame 啟動 opacity/transform。
-    // 這樣不做高度展開，也不重載圖片，只讓卡牌區有柔順浮現效果。
-    setIsRevealReady(false);
-    let firstFrameId: number | null = null;
-    let secondFrameId: number | null = null;
-
-    firstFrameId = window.requestAnimationFrame(() => {
-      secondFrameId = window.requestAnimationFrame(() => {
-        setIsRevealReady(true);
-      });
-    });
-
-    return () => {
-      if (firstFrameId !== null) window.cancelAnimationFrame(firstFrameId);
-      if (secondFrameId !== null) window.cancelAnimationFrame(secondFrameId);
-    };
-  }, [activeCategoryMeta.key, isActive]);
+    // 分類第一次被開啟後就保留在 DOM 裡；這裡只把該分類所有固定圖片
+    // 分批預載與預解碼，避免往下滑時才一張一張載入造成「慢慢浮出」。
+    return scheduleCardImagePreload(categoryCards);
+  }, [categoryCards, isActive]);
 
   const toggleMultiFilterValue = (
     value: string,
@@ -163,13 +222,8 @@ export const GameCardGrid = memo(function GameCardGrid({
         {
           display: isActive ? "flex" : "none",
           width: "100%",
-          opacity: isRevealReady ? 1 : 0,
-          transform: isRevealReady
-            ? "translate3d(0,0,0) scale(1)"
-            : "translate3d(0,14px,0) scale(0.992)",
-          transition:
-            "opacity 260ms ease-out, transform 360ms cubic-bezier(0.22, 1, 0.36, 1)",
-          willChange: isActive ? "opacity, transform" : "auto",
+          opacity: 1,
+          transform: "translate3d(0,0,0)",
         } as React.CSSProperties
       }
     >
@@ -274,13 +328,7 @@ export const GameCardGrid = memo(function GameCardGrid({
         style={
           {
             contain: "layout paint style",
-            opacity: isRevealReady ? 1 : 0,
-            transform: isRevealReady
-              ? "translate3d(0,0,0)"
-              : "translate3d(0,10px,0)",
-            transition:
-              "opacity 260ms ease-out, transform 360ms cubic-bezier(0.22, 1, 0.36, 1)",
-            willChange: isActive ? "opacity, transform" : "auto",
+            opacity: 1,
           } as React.CSSProperties
         }
       >
@@ -361,11 +409,7 @@ export const GameCardGrid = memo(function GameCardGrid({
                           待解鎖
                         </div>
 
-                        <div className="absolute bottom-2 left-2 right-2 z-10 rounded-2xl border border-[#e2d4bd] bg-[#fffdf4] px-3 py-2 text-center">
-                          <p className="mt-1 text-[11px] font-bold tracking-wide text-[#7a6754]">
-                            點擊數據卡直接收藏 ✨
-                          </p>
-                        </div>
+                        <div className="hidden" aria-hidden="true" />
                       </div>
                     </div>
                   </div>
@@ -410,6 +454,12 @@ export const GameCardGrid = memo(function GameCardGrid({
                   </div>
                 </div>
               </div>
+
+              {!card.unlocked ? (
+                <div className="game-card-direct-collect-hint pointer-events-none absolute bottom-2 left-2 right-2 z-20 rounded-2xl border border-[#e2d4bd] bg-[#fffdf4] px-3 py-2 text-center text-[11px] font-semibold leading-4 tracking-[0.03em] text-[#6f5b45] shadow-[0_4px_10px_rgba(70,52,32,0.08)]">
+                  點擊數據卡直接收藏 ✨
+                </div>
+              ) : null}
 
               {isOpened ? (
                 <div

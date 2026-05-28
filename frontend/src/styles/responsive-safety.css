@@ -91,36 +91,67 @@
   [class*="title"],
   [class*="Title"] {
     font-family: var(--cityauncel-font-rounded);
-    font-weight: 800;
-    letter-spacing: 0.01em;
+    font-weight: 620;
+    letter-spacing: 0.008em;
   }
 
   h1, h2, .game-title, .auth-title, .task-title {
-    font-weight: 900;
+    font-weight: 680;
   }
 
-  /* 大型系統標題加粗：遊戲名稱、任務標題、稱號收藏等。
-     使用本機字體的合成粗體與輕量文字陰影，不新增外部字體載入。 */
+  /* 首頁字體階層：open 粉圓本身只有單一字重，過度使用 font-black/900
+     會被瀏覽器合成成粗體而變糊；這裡改用中高字重、尺寸與留白建立層次。 */
   .game-major-title,
   .home-task-title,
   .home-reward-title,
   .system-major-title {
     font-family: var(--cityauncel-font-rounded) !important;
-    font-weight: 900 !important;
-    text-shadow:
-      0.018em 0 0 currentColor,
-      -0.018em 0 0 currentColor,
-      0 0.018em 0 currentColor;
-    text-rendering: geometricPrecision;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    text-shadow: none !important;
   }
 
   .game-major-title {
-    letter-spacing: 0.16em;
+    font-weight: 660 !important;
+    letter-spacing: clamp(0.08em, 0.8vw, 0.14em) !important;
+    line-height: 1.08;
   }
 
   .home-task-title,
   .home-reward-title {
-    letter-spacing: 0.08em;
+    font-weight: 620 !important;
+    letter-spacing: clamp(0.025em, 0.35vw, 0.055em) !important;
+    line-height: 1.12;
+  }
+
+  .home-eyebrow-label,
+  .home-tab-label,
+  .home-chip-label,
+  .home-action-label,
+  .home-small-label {
+    font-family: var(--cityauncel-font-rounded) !important;
+    font-weight: 520 !important;
+    text-shadow: none !important;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .home-eyebrow-label {
+    letter-spacing: 0.18em !important;
+  }
+
+  .home-tab-label,
+  .home-chip-label {
+    letter-spacing: 0.13em !important;
+  }
+
+  .home-action-label {
+    letter-spacing: 0.055em !important;
+  }
+
+  .home-medal-title {
+    font-weight: 560 !important;
+    letter-spacing: 0.01em;
+    line-height: 1.32;
   }
 
   .font-sans, .font-serif {

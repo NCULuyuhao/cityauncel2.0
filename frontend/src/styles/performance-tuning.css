@@ -1,0 +1,184 @@
+/* --------------------------------------------------------------------------
+   Performance tuning layer
+   目標：保留按鈕回饋、線索擷取與開卡包的重點動畫，同時降低全頁閃爍與滑動重繪成本。
+   -------------------------------------------------------------------------- */
+
+
+@layer base {
+  /* 桌機版統一使用同一個版面寬度基準。
+     右側 scrollbar 保留、左側不保留，避免首頁、探究頁、地圖頁來回切換時畫面左右跳動。 */
+  @media (hover: hover) and (pointer: fine) {
+    html {
+      overflow-y: scroll !important;
+      scrollbar-gutter: stable !important;
+    }
+
+    body,
+    #root {
+      scrollbar-gutter: stable !important;
+    }
+  }
+}
+
+@layer base {
+  /* 固定式多層背景在滑動時會讓瀏覽器重複合成；平板與窄螢幕改成靜態輕背景。 */
+  @media (pointer: coarse), (max-width: 1024px) {
+    html,
+    body,
+    #root {
+      background:
+        radial-gradient(circle at 14% 10%, rgba(255, 247, 202, 0.48), transparent 18rem),
+        radial-gradient(circle at 88% 14%, rgba(190, 211, 170, 0.36), transparent 20rem),
+        linear-gradient(145deg, #fff3cf 0%, #ead7a7 44%, #b5c99a 100%) !important;
+    }
+
+    body::before,
+    body::after,
+    .game-auth-shell::before,
+    .game-adventure-page::before {
+      display: none !important;
+    }
+  }
+}
+
+@layer components {
+  /* iPad/Safari 不再重新打開大面積 backdrop blur，避免上下滑動時閃爍與掉幀。 */
+  @media (pointer: coarse), (max-width: 1024px) {
+    .backdrop-blur,
+    .backdrop-blur-sm,
+    .backdrop-blur-md,
+    .backdrop-blur-lg,
+    .backdrop-blur-xl {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+  }
+
+  /* 按鈕保留輕量遊戲感：有回饋，但不做大型位移或濾鏡。 */
+  :where(button, [role="button"], a[href]) {
+    transition-property: transform, opacity, box-shadow, background-color, border-color, color, filter;
+    transition-duration: 140ms;
+    transition-timing-function: ease-out;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :where(button, [role="button"], a[href]):not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+  }
+
+  :where(button, [role="button"], a[href]):not(:disabled):active {
+    transform: translateY(1px) scale(0.985);
+    filter: brightness(0.98);
+  }
+
+  /* 數據清單卡牌：圖片常駐、避免分類切換時整區淡出造成「白一下」。 */
+  .uiux-card-grid {
+    content-visibility: visible;
+    contain: layout paint style;
+  }
+
+  .uiux-card-grid img {
+    display: block;
+  }
+
+  .uiux-card-grid > button {
+    will-change: auto;
+    transform: none;
+  }
+
+  .game-card-direct-collect-hint {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+    transform: none;
+    filter: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* 線索擷取的閃光保留，但降低非必要濾鏡成本。 */
+  .snapshot-card-glow-flash {
+    will-change: transform, box-shadow;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, [role="button"], a[href]) {
+    transition-duration: 80ms !important;
+  }
+}
+
+@layer components {
+  /* 任務頁的天秤背景在桌機與平板維持一致視覺。
+     只有排版尺寸依螢幕改變，不另外降低透明度、關閉擺動或移除光暈，
+     避免平板看起來像不同版本的畫面。 */
+
+  /* 讓每個可點擊物件都有一致、輕量的遊戲按壓感，不使用昂貴的大範圍濾鏡。 */
+  .game-adventure-page button:not(:disabled),
+  .uiux-page-shell button:not(:disabled),
+  .game-auth-shell button:not(:disabled),
+  .game-adventure-page [role="button"],
+  .uiux-page-shell [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* 不要在整個頁面轉場容器上使用 transform。
+     transform 會讓子層的 position: fixed 改成相對頁面容器定位，
+     造成數據卡、確認視窗、蒐集時間、收集數據與稱號收藏在長頁面中跑到使用者目前視角外。 */
+  .page-transition-layer {
+    width: 100%;
+    min-width: 0;
+    min-height: 100svh;
+    overflow-x: clip;
+    transform: none !important;
+    backface-visibility: visible;
+  }
+
+
+  /* 首頁固定區塊先保留尺寸，避免教師控制狀態、卡包開放狀態或資料回填後把整個首頁往下推。 */
+  .uiux-home-header-grid {
+    min-height: clamp(9.5rem, 15vw, 12.5rem);
+  }
+
+  .uiux-dashboard-grid > section,
+  .uiux-home-map-section {
+    min-width: 0;
+  }
+
+  @media (min-width: 901px) {
+    .uiux-dashboard-grid > section {
+      min-height: clamp(42rem, 68svh, 52rem);
+    }
+  }
+
+  .uiux-home-map-slide,
+  .uiux-pack-grid > * {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  .uiux-card-grid > button {
+    backface-visibility: visible;
+    transform: none;
+  }
+}
+
+@layer components {
+  @media (hover: hover) and (pointer: fine) {
+    .game-primary-button:hover,
+    .game-secondary-button:hover,
+    .game-adventure-page button:not(:disabled):hover,
+    .uiux-page-shell button:not(:disabled):hover {
+      transform: translateY(-1px) !important;
+      filter: brightness(1.015) !important;
+    }
+  }
+
+  .game-primary-button:active,
+  .game-secondary-button:active,
+  .game-adventure-page button:not(:disabled):active,
+  .uiux-page-shell button:not(:disabled):active {
+    transform: translateY(1px) scale(0.985) !important;
+    filter: brightness(0.985) !important;
+  }
+}

@@ -13,6 +13,7 @@
 @import "./desktop-layout.css";
 @import "./ios-safari-fixes.css";
 @import "./touch-hover-reset.css";
+@import "./performance-tuning.css";
 
 /* iPad / PWA friendly immersive mode.
    This intentionally avoids the browser Fullscreen API on Apple touch devices,

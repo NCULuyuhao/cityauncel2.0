@@ -9,233 +9,98 @@ const express = require("express");
 const pool = require("../db");
 const { authenticateToken, requireTeacher } = require("../middleware/auth");
 const { insertStudentActivityLog } = require("../services/activityLog");
+const {
+  VALID_FINAL_CHOICES,
+  GROUPS,
+  objectFromChoiceRows,
+  replaceMapChoices,
+  resolveVoteFromMaps,
+  buildVoteStatsFromMaps,
+  getLatestPersonalMapActionTimes,
+  getLatestClassInputActionTimes,
+  filterActiveGroupFinalChoices,
+  filterActiveClassFinalChoices,
+} = require("../services/mapDecisionService");
 
-const VALID_MAP_CHOICES = ["保育", "開發", "我不知道"];
-const VALID_FINAL_CHOICES = ["保育", "開發"];
-const GROUPS = {
-  environment: { name: "🌿棲地保育局" },
-  government: { name: "🚧土地規劃局" },
-  farming: { name: "🐄農業生計局" },
-  animal: { name: "🐕犬貓管理局" },
-  greenEnergy: { name: "☀️科技投資局" },
-  education: { name: "🎓公眾教育局" },
-};
+const ALL_DISTRICTS_SENTINEL = "__ALL__";
+const PERSONAL_MAP_CHOICE_LIMIT = 9;
 
-function objectFromChoiceRows(rows) {
-  const result = {};
-  (rows || []).forEach((row) => {
-    const districtName = row.district_name || row.districtName;
-    if (!districtName) return;
-    result[districtName] = row.choice || null;
-  });
-  return result;
-}
+const MAP_DISTRICT_NAMES = [
+  "苗栗市",
+  "頭份市",
+  "竹南鎮",
+  "後龍鎮",
+  "通霄鎮",
+  "苑裡鎮",
+  "卓蘭鎮",
+  "大湖鄉",
+  "公館鄉",
+  "銅鑼鄉",
+  "南庄鄉",
+  "頭屋鄉",
+  "三義鄉",
+  "西湖鄉",
+  "造橋鄉",
+  "三灣鄉",
+  "獅潭鄉",
+  "泰安鄉",
+];
+const MAP_DISTRICT_SET = new Set(MAP_DISTRICT_NAMES);
 
-async function replaceMapChoices(connection, userId, nextMapState, groupId = null) {
-  const [oldRows] = await connection.query(
-    `SELECT district_name, choice FROM map_choices WHERE scope = 'personal' AND user_id = ?`,
-    [userId],
-  );
-  const oldMapState = objectFromChoiceRows(oldRows);
-
-  const allDistricts = new Set([
-    ...Object.keys(oldMapState || {}),
-    ...Object.keys(nextMapState || {}),
-  ]);
-
-  for (const districtName of allDistricts) {
-    const previousChoice = oldMapState[districtName] || null;
-    const newChoice = nextMapState[districtName] || null;
-
-    if (newChoice && !VALID_MAP_CHOICES.includes(newChoice)) continue;
-    if (previousChoice === newChoice) continue;
-
-    if (!newChoice) {
-      await connection.query(
-        "DELETE FROM map_choices WHERE scope = 'personal' AND user_id = ? AND district_name = ?",
-        [userId, districtName],
-      );
-    } else {
-      await connection.query(
-        `INSERT INTO map_choices (scope, owner_id, user_id, district_name, choice)
-         VALUES ('personal', ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE choice = VALUES(choice), updated_at = CURRENT_TIMESTAMP`,
-        [String(userId), userId, districtName, newChoice],
-      );
-    }
-
-    if (groupId) {
-      await connection.query(
-        `DELETE FROM map_choices
-         WHERE scope = 'group' AND group_id = ? AND district_name = ?`,
-        [groupId, districtName],
-      );
-    }
-    await connection.query(
-      `DELETE FROM map_choices
-       WHERE scope = 'class' AND owner_id = 'class' AND district_name = ?`,
-      [districtName],
-    );
-
-    await connection.query(
-      `INSERT INTO map_action_logs (
-        user_id, scope, group_id, district_name,
-        previous_choice, new_choice, action_type
-      ) VALUES (?, 'personal', ?, ?, ?, ?, ?)`,
-      [
-        userId,
-        groupId,
-        districtName,
-        previousChoice,
-        newChoice,
-        previousChoice ? "change_choice" : "set_choice",
-      ],
-    );
+function normalizeMapStatePayload(rawMapState) {
+  const normalized = {};
+  if (!rawMapState || typeof rawMapState !== "object" || Array.isArray(rawMapState)) {
+    return normalized;
   }
 
-  return oldMapState;
-}
-
-function resolveVoteFromMaps(maps) {
-  const result = {};
-  maps.forEach((map) => {
-    Object.entries(map || {}).forEach(([district, choice]) => {
-      if (!result[district]) result[district] = { 保育: 0, 開發: 0, 我不知道: 0 };
-      if (choice === "保育") result[district].保育 += 1;
-      if (choice === "開發") result[district].開發 += 1;
-      if (choice === "我不知道") result[district].我不知道 += 1;
-    });
+  Object.entries(rawMapState).forEach(([districtName, choice]) => {
+    if (!MAP_DISTRICT_SET.has(districtName)) return;
+    if (!choice) return;
+    if (!VALID_FINAL_CHOICES.includes(choice) && choice !== "我不知道") return;
+    normalized[districtName] = choice;
   });
 
-  const final = {};
-  Object.entries(result).forEach(([district, count]) => {
-    const knownVotes = count.保育 + count.開發;
-    if (knownVotes === 0 && count.我不知道 === maps.length && maps.length > 0) {
-      final[district] = "我不知道";
-    } else if (count.保育 > count.開發) {
-      final[district] = "保育";
-    } else if (count.開發 > count.保育) {
-      final[district] = "開發";
-    } else {
-      final[district] = null;
-    }
-  });
-  return final;
+  return normalized;
 }
 
-function buildVoteStatsFromMaps(maps) {
-  const stats = {};
-  maps.forEach((map) => {
-    Object.entries(map || {}).forEach(([district, choice]) => {
-      if (!stats[district]) stats[district] = { 保育: 0, 開發: 0, 我不知道: 0 };
-      if (choice === "保育") stats[district].保育 += 1;
-      if (choice === "開發") stats[district].開發 += 1;
-      if (choice === "我不知道") stats[district].我不知道 += 1;
-    });
+function getIncompleteMapDistricts(mapState) {
+  return MAP_DISTRICT_NAMES.filter((districtName) => {
+    const choice = mapState?.[districtName];
+    return choice !== "保育" && choice !== "開發" && choice !== "我不知道";
   });
-  return stats;
 }
 
-function isTieFromVoteStats(stats) {
+function getPersonalMapLimitError(mapState) {
+  const choices = Object.values(mapState || {});
+  const conserveCount = choices.filter((choice) => choice === "保育").length;
+  const developCount = choices.filter((choice) => choice === "開發").length;
+
+  if (conserveCount > PERSONAL_MAP_CHOICE_LIMIT) {
+    return `需要保育最多只能選 ${PERSONAL_MAP_CHOICE_LIMIT} 個，目前已選 ${conserveCount} 個`;
+  }
+  if (developCount > PERSONAL_MAP_CHOICE_LIMIT) {
+    return `需要開發最多只能選 ${PERSONAL_MAP_CHOICE_LIMIT} 個，目前已選 ${developCount} 個`;
+  }
+  return null;
+}
+
+
+function isTieVoteStats(stats) {
   if (!stats) return false;
   const conserveCount = Number(stats.保育 || 0);
   const developCount = Number(stats.開發 || 0);
-  const knownVotes = conserveCount + developCount;
-  return knownVotes > 0 && conserveCount === developCount;
+  return conserveCount + developCount > 0 && conserveCount === developCount;
 }
 
-function toTimeValue(value) {
-  if (!value) return 0;
-  const date = value instanceof Date ? value : new Date(value);
-  const time = date.getTime();
-  return Number.isFinite(time) ? time : 0;
-}
-
-function isOverrideFresh(overrideUpdatedAt, latestInputChangedAt) {
-  const overrideTime = toTimeValue(overrideUpdatedAt);
-  const inputTime = toTimeValue(latestInputChangedAt);
-  if (!overrideTime) return true;
-  if (!inputTime) return true;
-  return overrideTime >= inputTime;
-}
-
-async function getLatestPersonalMapActionTimes(groupId = null) {
-  const params = [];
-  const where = ["scope = 'personal'", "group_id IS NOT NULL"];
-  if (groupId) {
-    where.push("group_id = ?");
-    params.push(groupId);
-  }
-
-  const [rows] = await pool.query(
-    `SELECT group_id AS groupId, district_name AS districtName, MAX(created_at) AS latestChangedAt
-     FROM map_action_logs
-     WHERE ${where.join(" AND ")}
-     GROUP BY group_id, district_name`,
-    params,
-  );
-
-  const result = new Map();
-  rows.forEach((row) => {
-    result.set(`${row.groupId}::${row.districtName}`, row.latestChangedAt);
-  });
-  return result;
-}
-
-async function getLatestClassInputActionTimes() {
-  const [rows] = await pool.query(
-    `SELECT district_name AS districtName, MAX(created_at) AS latestChangedAt
-     FROM map_action_logs
-     WHERE scope IN ('personal', 'group')
-     GROUP BY district_name`,
-  );
-
-  const result = new Map();
-  rows.forEach((row) => {
-    result.set(String(row.districtName), row.latestChangedAt);
-  });
-  return result;
-}
-
-function filterActiveGroupFinalChoices({ groupId, personalMaps, finalRows, latestPersonalActionTimes }) {
-  const voteStats = buildVoteStatsFromMaps(personalMaps);
-  const active = {};
-
-  finalRows.forEach((row) => {
-    const districtName = row.district_name || row.districtName;
-    const choice = row.choice;
-    if (!districtName || !choice) return;
-    if (!isTieFromVoteStats(voteStats[districtName])) return;
-
-    const latestInputChangedAt = latestPersonalActionTimes?.get(`${groupId}::${districtName}`);
-    if (!isOverrideFresh(row.updated_at || row.updatedAt, latestInputChangedAt)) return;
-
-    active[districtName] = choice;
-  });
-
-  return active;
-}
-
-function filterActiveClassFinalChoices({ groupResults, classRows, latestClassInputActionTimes }) {
-  const groupDecisionMaps = groupResults.map((group) => group.decisions || {});
-  const active = {};
-
-  classRows.forEach((row) => {
-    const districtName = row.district_name || row.districtName;
-    const choice = row.choice;
-    if (!districtName || !choice) return;
-
-    const votes = groupDecisionMaps.map((decisions) => decisions[districtName]).filter(Boolean);
-    const classStats = buildVoteStatsFromMaps(votes.map((vote) => ({ [districtName]: vote })));
-    if (!isTieFromVoteStats(classStats[districtName])) return;
-
-    const latestInputChangedAt = latestClassInputActionTimes?.get(String(districtName));
-    if (!isOverrideFresh(row.updated_at || row.updatedAt, latestInputChangedAt)) return;
-
-    active[districtName] = choice;
-  });
-
-  return active;
+function groupLockSummaryFromStatuses(statuses) {
+  const totalCount = statuses.length;
+  const lockedCount = statuses.filter((status) => status.isLocked).length;
+  return {
+    lockedCount,
+    totalCount,
+    unlockedCount: Math.max(totalCount - lockedCount, 0),
+    allLocked: totalCount > 0 && lockedCount === totalCount,
+  };
 }
 
 function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publishRealtimeEvent, ensureMapChoicesTable }) {
@@ -259,10 +124,218 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
     }
   };
 
+  async function getPersonalLockByUserId(userId) {
+    const [[lockRow]] = await pool.query(
+      `SELECT user_id AS userId, locked_by_user_id AS lockedByUserId, locked_at AS lockedAt
+       FROM map_locks
+       WHERE scope = 'personal' AND user_id = ?`,
+      [userId],
+    );
+    return lockRow || null;
+  }
+
+  async function getGroupLockByGroupId(groupId) {
+    if (!groupId) return null;
+    const [[lockRow]] = await pool.query(
+      `SELECT group_id AS groupId, locked_by_user_id AS lockedByUserId, locked_at AS lockedAt
+       FROM map_locks
+       WHERE scope = 'group' AND group_id = ?`,
+      [groupId],
+    );
+    return lockRow || null;
+  }
+
+  async function getGroupMembersAndMaps(groupId) {
+    const [members] = await pool.query(
+      `SELECT id, username, NULL AS email, is_group_leader
+       FROM users
+       WHERE group_id = ? AND COALESCE(role, 'student') = 'student'
+       ORDER BY is_group_leader DESC, id ASC`,
+      [groupId],
+    );
+
+    const memberIds = members.map((member) => member.id);
+    const [choiceRows] = memberIds.length > 0
+      ? await pool.query(
+          `SELECT user_id, district_name, choice
+           FROM map_choices
+           WHERE scope = 'personal' AND user_id IN (?)
+           ORDER BY user_id ASC, district_name ASC`,
+          [memberIds],
+        )
+      : [[]];
+
+    const choicesByUserId = new Map();
+    choiceRows.forEach((row) => {
+      const key = String(row.user_id);
+      const current = choicesByUserId.get(key) || {};
+      current[row.district_name] = row.choice;
+      choicesByUserId.set(key, current);
+    });
+
+    const [lockRows] = memberIds.length > 0
+      ? await pool.query(
+          `SELECT user_id AS userId, locked_at AS lockedAt, locked_by_user_id AS lockedByUserId
+           FROM map_locks
+           WHERE scope = 'personal' AND user_id IN (?)`,
+          [memberIds],
+        )
+      : [[]];
+    const personalLocksByUserId = new Map(
+      lockRows.map((row) => [String(row.userId), row]),
+    );
+
+    const membersWithLocks = members.map((member) => {
+      const lock = personalLocksByUserId.get(String(member.id));
+      return {
+        id: member.id,
+        username: member.username,
+        name: member.username,
+        email: member.email,
+        isGroupLeader: Boolean(member.is_group_leader),
+        isPersonalMapLocked: Boolean(lock),
+        personalMapLockedAt: lock?.lockedAt || null,
+      };
+    });
+
+    const personalData = members.map((member) => choicesByUserId.get(String(member.id)) || {});
+    const personalLockStatuses = membersWithLocks.map((member) => ({
+      userId: member.id,
+      username: member.username,
+      name: member.name,
+      isGroupLeader: member.isGroupLeader,
+      isLocked: member.isPersonalMapLocked,
+      lockedAt: member.personalMapLockedAt,
+    }));
+
+    return {
+      members: membersWithLocks,
+      personalData,
+      personalLockStatuses,
+      personalLockSummary: groupLockSummaryFromStatuses(personalLockStatuses),
+    };
+  }
+
+  async function getActiveGroupFinalDecisions(groupId, personalData) {
+    const [finalRows] = await pool.query(
+      `SELECT district_name, choice, updated_at
+       FROM map_choices
+       WHERE scope = 'group' AND group_id = ?`,
+      [groupId],
+    );
+
+    const latestPersonalActionTimes = await getLatestPersonalMapActionTimes(groupId);
+    return filterActiveGroupFinalChoices({
+      groupId,
+      personalMaps: personalData,
+      finalRows,
+      latestPersonalActionTimes,
+    });
+  }
+
+  function findUnresolvedGroupTieDistricts(personalData, activeGroupFinalDecisions) {
+    const voteStats = buildVoteStatsFromMaps(personalData);
+    return Object.entries(voteStats)
+      .filter(([districtName, stats]) => isTieVoteStats(stats) && !activeGroupFinalDecisions[districtName])
+      .map(([districtName]) => districtName);
+  }
+
+  async function getActiveMapGroups() {
+    const [groups] = await pool.query(
+      `SELECT group_id AS groupId,
+              COUNT(*) AS memberCount,
+              SUM(CASE WHEN is_group_leader = 1 THEN 1 ELSE 0 END) AS leaderCount
+       FROM users
+       WHERE group_id IS NOT NULL AND COALESCE(role, 'student') = 'student'
+       GROUP BY group_id
+       HAVING memberCount > 0
+       ORDER BY MIN(id) ASC`,
+    );
+
+    return groups.map((group) => ({
+      groupId: String(group.groupId),
+      groupName: mapGroupName(group.groupId) || GROUPS[String(group.groupId)]?.name || `小組 ${group.groupId}`,
+      memberCount: Number(group.memberCount || 0),
+      leaderCount: Number(group.leaderCount || 0),
+      hasLeader: Number(group.leaderCount || 0) > 0,
+    }));
+  }
+
+  async function getAllGroupLockStatuses() {
+    const activeGroups = await getActiveMapGroups();
+    const [lockRows] = await pool.query(
+      `SELECT group_id AS groupId, locked_by_user_id AS lockedByUserId, locked_at AS lockedAt
+       FROM map_locks
+       WHERE scope = 'group' AND group_id IS NOT NULL`,
+    );
+    const locksByGroupId = new Map(lockRows.map((row) => [String(row.groupId), row]));
+
+    return activeGroups.map((group) => {
+      const lock = locksByGroupId.get(String(group.groupId));
+      return {
+        groupId: group.groupId,
+        groupName: group.groupName,
+        memberCount: group.memberCount,
+        leaderCount: group.leaderCount,
+        hasLeader: group.hasLeader,
+        isLocked: Boolean(lock),
+        lockedAt: lock?.lockedAt || null,
+        lockedByUserId: lock?.lockedByUserId || null,
+      };
+    });
+  }
+
+  async function buildPersonalLockRealtimePayload(userId, groupId) {
+    const fallbackSummary = { lockedCount: 0, totalCount: 0, unlockedCount: 0, allLocked: false };
+    if (!groupId) {
+      return {
+        scope: "personal",
+        userId,
+        groupId: null,
+        groupName: null,
+        members: [],
+        personalLockStatuses: [],
+        personalLockSummary: fallbackSummary,
+        isGroupReady: false,
+        isMyPersonalLocked: false,
+      };
+    }
+
+    const { members, personalLockStatuses, personalLockSummary } = await getGroupMembersAndMaps(groupId);
+    const myLock = personalLockStatuses.find((status) => String(status.userId) === String(userId));
+    return {
+      scope: "personal",
+      userId,
+      groupId,
+      groupName: mapGroupName(groupId),
+      members,
+      personalLockStatuses,
+      personalLockSummary,
+      isGroupReady: personalLockSummary.allLocked,
+      isMyPersonalLocked: Boolean(myLock?.isLocked),
+    };
+  }
+
+  async function buildGroupLockRealtimePayload({ scope = "group", userId = null, groupId = null, extra = {} } = {}) {
+    const groupLockStatuses = await getAllGroupLockStatuses();
+    const groupLockSummary = groupLockSummaryFromStatuses(groupLockStatuses);
+    return {
+      scope,
+      userId,
+      groupId,
+      groupLockStatuses,
+      groupLockSummary,
+      allGroupsLocked: groupLockSummary.allLocked,
+      ...extra,
+    };
+  }
+
   router.use([
     "/api/user-map",
+    "/api/user-map/lock",
     "/api/group-personal-maps",
     "/api/group-final-decision",
+    "/api/group-map/lock",
     "/api/class-group-decisions",
     "/api/class-final-decision",
     "/api/class-final-decisions",
@@ -274,7 +347,12 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
         "SELECT district_name, choice FROM map_choices WHERE scope = 'personal' AND user_id = ?",
         [req.user.id],
       );
-      res.json({ mapState: objectFromChoiceRows(rows) });
+      const lock = await getPersonalLockByUserId(req.user.id);
+      res.json({
+        mapState: objectFromChoiceRows(rows),
+        isPersonalLocked: Boolean(lock),
+        personalLockedAt: lock?.lockedAt || null,
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "讀取個人地圖失敗" });
@@ -284,7 +362,14 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
   router.put("/api/user-map", authenticateToken, async (req, res) => {
     const connection = await pool.getConnection();
     try {
-      const nextMapState = req.body?.mapState || {};
+      const personalLock = await getPersonalLockByUserId(req.user.id);
+      if (personalLock) {
+        return res.status(423).json({ message: "個人地圖已鎖定，不能再修改" });
+      }
+
+      const nextMapState = normalizeMapStatePayload(req.body?.mapState || {});
+      const limitError = getPersonalMapLimitError(nextMapState);
+      if (limitError) return res.status(409).json({ message: limitError });
       const actor = await getActor(req.user.id, req.user);
 
       await connection.beginTransaction();
@@ -296,25 +381,129 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
         const previousChoice = oldMapState[districtName] || null;
         const newChoice = nextMapState[districtName] || null;
         if (previousChoice !== newChoice) {
-          await insertStudentActivityLog({
-            ...actor,
-            eventType: `map_${previousChoice ? "change_choice" : "set_choice"}`,
-            eventLabel: "地圖決策操作",
-            targetType: "personal",
-            targetId: districtName,
-            previousValue: previousChoice,
-            newValue: newChoice,
-            metadata: { scope: "personal", districtName, actionType: previousChoice ? "change_choice" : "set_choice" },
-          });
+          try {
+            await insertStudentActivityLog({
+              ...actor,
+              eventType: `map_${previousChoice ? "change_choice" : "set_choice"}`,
+              eventLabel: "地圖決策操作",
+              targetType: "personal",
+              targetId: districtName,
+              previousValue: previousChoice,
+              newValue: newChoice,
+              metadata: { scope: "personal", districtName, actionType: previousChoice ? "change_choice" : "set_choice" },
+            });
+          } catch (logError) {
+            console.error("地圖決策活動紀錄寫入失敗：", logError);
+          }
         }
       }
 
       publishRealtimeEvent("map-user-updated", { userId: req.user.id, groupId: actor.groupId || null });
       res.json({ message: "個人地圖已儲存" });
     } catch (error) {
-      await connection.rollback();
+      try { await connection.rollback(); } catch (rollbackError) { console.error("地圖交易回復失敗：", rollbackError); }
       console.error(error);
       res.status(500).json({ message: "儲存個人地圖失敗" });
+    } finally {
+      connection.release();
+    }
+  });
+
+  router.post("/api/user-map/lock", authenticateToken, async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+      const actor = await getActor(req.user.id, req.user);
+      const incomingMapState = req.body && Object.prototype.hasOwnProperty.call(req.body, "mapState")
+        ? normalizeMapStatePayload(req.body.mapState)
+        : null;
+
+      await connection.beginTransaction();
+
+      const [[existingLock]] = await connection.query(
+        `SELECT user_id AS userId, locked_at AS lockedAt
+         FROM map_locks
+         WHERE scope = 'personal' AND user_id = ?
+         FOR UPDATE`,
+        [req.user.id],
+      );
+
+      if (existingLock) {
+        await connection.commit();
+        publishRealtimeEvent(
+          "map-lock-updated",
+          await buildPersonalLockRealtimePayload(req.user.id, actor.groupId || null),
+        );
+        return res.json({ message: "個人地圖已鎖定", isPersonalLocked: true, alreadyLocked: true });
+      }
+
+      let finalMapState = incomingMapState;
+      if (!finalMapState) {
+        const [rows] = await connection.query(
+          `SELECT district_name, choice FROM map_choices WHERE scope = 'personal' AND user_id = ?`,
+          [req.user.id],
+        );
+        finalMapState = objectFromChoiceRows(rows);
+      }
+
+      const incompleteDistricts = getIncompleteMapDistricts(finalMapState);
+      if (incompleteDistricts.length > 0) {
+        await connection.rollback();
+        return res.status(409).json({
+          message: `還有 ${incompleteDistricts.length} 個鄉鎮市尚未完成判斷，請全部選完後再鎖定`,
+          incompleteDistricts,
+          completedCount: MAP_DISTRICT_NAMES.length - incompleteDistricts.length,
+          totalCount: MAP_DISTRICT_NAMES.length,
+        });
+      }
+
+      const limitError = getPersonalMapLimitError(finalMapState);
+      if (limitError) {
+        await connection.rollback();
+        return res.status(409).json({ message: limitError });
+      }
+
+      const oldMapState = incomingMapState
+        ? await replaceMapChoices(connection, req.user.id, finalMapState, actor.groupId)
+        : finalMapState;
+
+      await connection.query(
+        `INSERT INTO map_locks (scope, owner_id, user_id, group_id, locked_by_user_id)
+         VALUES ('personal', ?, ?, ?, ?)`,
+        [String(req.user.id), req.user.id, actor.groupId || null, req.user.id],
+      );
+      await connection.query(
+        `INSERT INTO map_action_logs (user_id, scope, group_id, district_name, previous_choice, new_choice, action_type)
+         VALUES (?, 'personal', ?, ?, NULL, 'locked', 'lock_personal_map')`,
+        [req.user.id, actor.groupId || null, ALL_DISTRICTS_SENTINEL],
+      );
+
+      await connection.commit();
+
+      try {
+        await insertStudentActivityLog({
+          ...actor,
+          eventType: "map_lock_personal",
+          eventLabel: "鎖定個人地圖",
+          targetType: "personal",
+          targetId: ALL_DISTRICTS_SENTINEL,
+          previousValue: oldMapState,
+          newValue: "locked",
+          metadata: { scope: "personal", completedDistricts: MAP_DISTRICT_NAMES.length },
+        });
+      } catch (logError) {
+        console.error("鎖定個人地圖活動紀錄寫入失敗：", logError);
+      }
+
+      publishRealtimeEvent(
+        "map-lock-updated",
+        await buildPersonalLockRealtimePayload(req.user.id, actor.groupId || null),
+      );
+      publishRealtimeEvent("map-user-updated", { userId: req.user.id, groupId: actor.groupId || null });
+      return res.json({ message: "個人地圖已鎖定", isPersonalLocked: true, mapState: finalMapState });
+    } catch (error) {
+      try { await connection.rollback(); } catch (rollbackError) { console.error("地圖交易回復失敗：", rollbackError); }
+      console.error(error);
+      return res.status(500).json({ message: "鎖定個人地圖失敗" });
     } finally {
       connection.release();
     }
@@ -327,64 +516,40 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
       const user = await getRequestUserProfile(req.user.id);
       const groupId = user?.group_id || null;
       if (!groupId) {
-        return res.json({ groupId: null, groupName: null, members: [], personalData: [], groupFinalDecisions: {} });
+        return res.json({
+          groupId: null,
+          groupName: null,
+          members: [],
+          personalData: [],
+          groupFinalDecisions: {},
+          personalLockStatuses: [],
+          personalLockSummary: { lockedCount: 0, totalCount: 0, unlockedCount: 0, allLocked: false },
+          isGroupReady: false,
+          isMyPersonalLocked: false,
+          isGroupMapLocked: false,
+          groupMapLockedAt: null,
+          groupMapLockedByUserId: null,
+        });
       }
 
-      const [members] = await pool.query(
-        `SELECT id, username, NULL AS email, is_group_leader
-         FROM users
-         WHERE group_id = ? AND COALESCE(role, 'student') = 'student'
-         ORDER BY is_group_leader DESC, id ASC`,
-        [groupId],
-      );
-
-      const memberIds = members.map((member) => member.id);
-      const [choiceRows] = memberIds.length > 0
-        ? await pool.query(
-            `SELECT user_id, district_name, choice
-             FROM map_choices
-             WHERE scope = 'personal' AND user_id IN (?)
-             ORDER BY user_id ASC, district_name ASC`,
-            [memberIds],
-          )
-        : [[]];
-
-      const choicesByUserId = new Map();
-      choiceRows.forEach((row) => {
-        const key = String(row.user_id);
-        const current = choicesByUserId.get(key) || {};
-        current[row.district_name] = row.choice;
-        choicesByUserId.set(key, current);
-      });
-
-      const [finalRows] = await pool.query(
-        `SELECT district_name, choice, updated_at
-         FROM map_choices
-         WHERE scope = 'group' AND group_id = ?`,
-        [groupId],
-      );
-
-      const personalData = members.map((member) => choicesByUserId.get(String(member.id)) || {});
-      const latestPersonalActionTimes = await getLatestPersonalMapActionTimes(groupId);
-      const activeGroupFinalDecisions = filterActiveGroupFinalChoices({
-        groupId,
-        personalMaps: personalData,
-        finalRows,
-        latestPersonalActionTimes,
-      });
+      const { members, personalData, personalLockStatuses, personalLockSummary } = await getGroupMembersAndMaps(groupId);
+      const activeGroupFinalDecisions = await getActiveGroupFinalDecisions(groupId, personalData);
+      const groupLock = await getGroupLockByGroupId(groupId);
+      const myPersonalLock = personalLockStatuses.find((status) => String(status.userId) === String(req.user.id));
 
       res.json({
         groupId,
         groupName: mapGroupName(groupId),
-        members: members.map((member) => ({
-          id: member.id,
-          username: member.username,
-          name: member.username,
-          email: member.email,
-          isGroupLeader: Boolean(member.is_group_leader),
-        })),
+        members,
         personalData,
         groupFinalDecisions: activeGroupFinalDecisions,
+        personalLockStatuses,
+        personalLockSummary,
+        isGroupReady: personalLockSummary.allLocked,
+        isMyPersonalLocked: Boolean(myPersonalLock?.isLocked),
+        isGroupMapLocked: Boolean(groupLock),
+        groupMapLockedAt: groupLock?.lockedAt || null,
+        groupMapLockedByUserId: groupLock?.lockedByUserId || null,
       });
     } catch (error) {
       console.error(error);
@@ -401,6 +566,10 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
       const user = await getRequestUserProfile(req.user.id);
       if (!user?.group_id) return res.status(400).json({ message: "尚未分配小組" });
       if (!user?.is_group_leader) return res.status(403).json({ message: "只有組長可以決定小組平手地區" });
+      if (await getGroupLockByGroupId(user.group_id)) return res.status(423).json({ message: "小組地圖已鎖定，不能再修改" });
+
+      const { personalLockSummary } = await getGroupMembersAndMaps(user.group_id);
+      if (!personalLockSummary.allLocked) return res.status(409).json({ message: "需等待小組全員鎖定個人地圖後，才能決定小組平手地區" });
 
       const [[oldRow]] = await pool.query(
         `SELECT choice FROM map_choices
@@ -464,6 +633,68 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
     }
   });
 
+  router.post("/api/group-map/lock", authenticateToken, async (req, res) => {
+    try {
+      const user = await getRequestUserProfile(req.user.id);
+      if (!user?.group_id) return res.status(400).json({ message: "尚未分配小組" });
+      if (!user?.is_group_leader) return res.status(403).json({ message: "只有組長可以鎖定小組地圖" });
+
+      const existingLock = await getGroupLockByGroupId(user.group_id);
+      if (existingLock) {
+        publishRealtimeEvent(
+          "map-lock-updated",
+          await buildGroupLockRealtimePayload({ scope: "group", groupId: user.group_id, userId: req.user.id }),
+        );
+        return res.json({ message: "小組地圖已鎖定", isGroupMapLocked: true });
+      }
+
+      const { personalData, personalLockSummary } = await getGroupMembersAndMaps(user.group_id);
+      if (!personalLockSummary.allLocked) {
+        return res.status(409).json({ message: "需等待小組全員鎖定個人地圖後，才能鎖定小組地圖" });
+      }
+
+      const activeGroupFinalDecisions = await getActiveGroupFinalDecisions(user.group_id, personalData);
+      const unresolvedTieDistricts = findUnresolvedGroupTieDistricts(personalData, activeGroupFinalDecisions);
+      if (unresolvedTieDistricts.length > 0) {
+        return res.status(409).json({
+          message: `還有 ${unresolvedTieDistricts.length} 個平手地區尚未由組長決定`,
+          unresolvedTieDistricts,
+        });
+      }
+
+      await pool.query(
+        `INSERT INTO map_locks (scope, owner_id, user_id, group_id, locked_by_user_id)
+         VALUES ('group', ?, NULL, ?, ?)`,
+        [String(user.group_id), user.group_id, req.user.id],
+      );
+      await pool.query(
+        `INSERT INTO map_action_logs (user_id, scope, group_id, district_name, previous_choice, new_choice, action_type)
+         VALUES (?, 'group', ?, ?, NULL, 'locked', 'lock_group_map')`,
+        [req.user.id, user.group_id, ALL_DISTRICTS_SENTINEL],
+      );
+      await insertStudentActivityLog({
+        userId: req.user.id,
+        username: user.username,
+        role: user.role || "student",
+        groupId: user.group_id,
+        eventType: "map_lock_group",
+        eventLabel: "鎖定小組地圖",
+        targetType: "group",
+        targetId: ALL_DISTRICTS_SENTINEL,
+        newValue: "locked",
+      });
+
+      publishRealtimeEvent(
+        "map-lock-updated",
+        await buildGroupLockRealtimePayload({ scope: "group", groupId: user.group_id, userId: req.user.id }),
+      );
+      res.json({ message: "小組地圖已鎖定", isGroupMapLocked: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "鎖定小組地圖失敗" });
+    }
+  });
+
   router.get("/api/class-group-decisions", authenticateToken, async (req, res) => {
     try {
       res.set("Cache-Control", "no-store");
@@ -503,7 +734,9 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
       });
       const latestPersonalActionTimes = await getLatestPersonalMapActionTimes();
 
-      const groupResults = Object.entries(GROUPS).map(([groupId, groupInfo]) => {
+      const activeGroups = await getActiveMapGroups();
+      const groupResults = activeGroups.map((groupInfo) => {
+        const groupId = String(groupInfo.groupId);
         const userMaps = personalMapsByGroupId.get(groupId);
         const personalMaps = userMaps ? Array.from(userMaps.values()) : [];
         const autoDecisions = resolveVoteFromMaps(personalMaps);
@@ -516,7 +749,9 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
 
         return {
           groupId,
-          groupName: groupInfo.name,
+          groupName: groupInfo.groupName,
+          memberCount: groupInfo.memberCount,
+          leaderCount: groupInfo.leaderCount,
           decisions: { ...autoDecisions, ...activeFinalChoices },
         };
       });
@@ -533,7 +768,16 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
         latestClassInputActionTimes,
       });
 
-      res.json({ groupResults, classFinalChoices: activeClassFinalChoices });
+      const groupLockStatuses = await getAllGroupLockStatuses();
+      const groupLockSummary = groupLockSummaryFromStatuses(groupLockStatuses);
+
+      res.json({
+        groupResults,
+        classFinalChoices: activeClassFinalChoices,
+        groupLockStatuses,
+        groupLockSummary,
+        allGroupsLocked: groupLockSummary.allLocked,
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "讀取全班地圖失敗" });
@@ -546,6 +790,12 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
       const choice = req.body?.choice || null;
       if (!targetDistrict) return res.status(400).json({ message: "缺少地區名稱" });
       if (choice && !VALID_FINAL_CHOICES.includes(choice)) return res.status(400).json({ message: "決策只能是保育或開發" });
+
+      const groupLockStatuses = await getAllGroupLockStatuses();
+      const groupLockSummary = groupLockSummaryFromStatuses(groupLockStatuses);
+      if (!groupLockSummary.allLocked) {
+        return res.status(409).json({ message: "需等待所有組長鎖定小組地圖後，才能決定全班平手地區" });
+      }
 
       const [[oldRow]] = await pool.query(
         `SELECT choice FROM map_choices

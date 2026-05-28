@@ -23,8 +23,9 @@ export function ProgressiveCardImage({
       src={src}
       alt={alt}
       aria-hidden={ariaHidden || alt === "" ? "true" : undefined}
-      loading={priority ? "eager" : "lazy"}
+      loading="eager"
       decoding="async"
+      {...({ fetchpriority: priority ? "high" : "low" } as Record<string, string>)}
       draggable={false}
       className={className}
     />

@@ -6,6 +6,7 @@
 
 import { useEffect, type MutableRefObject } from "react";
 import { saveInquiryDraftJson } from "@/storage/inquiryDraftStorage";
+import { runWhenBrowserIsIdle } from "@/utils/browserIdle";
 
 type SaveDraftOptions<TDraft> = {
   storageKey: string | null | undefined;
@@ -15,28 +16,6 @@ type SaveDraftOptions<TDraft> = {
   delay?: number;
   deps: readonly unknown[];
 };
-
-function runWhenBrowserIsIdle(callback: () => void, timeout = 240) {
-  let cancelled = false;
-  const run = () => {
-    if (cancelled) return;
-    callback();
-  };
-
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    const idleId = window.requestIdleCallback(run, { timeout });
-    return () => {
-      cancelled = true;
-      window.cancelIdleCallback(idleId);
-    };
-  }
-
-  const timeoutId = globalThis.setTimeout(run, timeout);
-  return () => {
-    cancelled = true;
-    globalThis.clearTimeout(timeoutId);
-  };
-}
 
 export function useInquiryDraftAutosave<TDraft>({
   storageKey,

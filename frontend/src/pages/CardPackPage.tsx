@@ -7,7 +7,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { saveInquiryCards } from "../api/inquiryApi";
 import { subscribeRealtime } from "../api/realtime";
 import {
@@ -16,324 +16,29 @@ import {
   saveGroupCardPackLock,
 } from "../api/cardPackApi";
 
-type GroupKey =
-  | "environment"
-  | "government"
-  | "farming"
-  | "animal"
-  | "greenEnergy"
-  | "education";
-
-type User = {
-  id: number | string;
-  username?: string;
-  groupId?: string | null;
-  groupName?: string | null;
-  isGroupLeader?: boolean;
-};
-
-type UnlockedCardData =
-  | string
-  | {
-      id: string;
-      content?: string;
-      unlockedAt?: string | number | null;
-      source?: string;
-      groupId?: string | null;
-    };
-
-const CARD_BACK_IMAGE = "/card/card-back-leopard-cat.webp";
-
-type PackCard = {
-  id: string;
-  title: string;
-  frontText: string;
-};
-
-type ActivityLogPayload = {
-  eventType: string;
-  eventLabel?: string;
-  targetType?: string;
-  targetId?: string;
-  previousValue?: unknown;
-  newValue?: unknown;
-  metadata?: Record<string, unknown>;
-};
-
-type CardPackPageProps = {
-  token: string;
-  currentUser: User;
-  unlockedCards: UnlockedCardData[];
-  setUnlockedCards: React.Dispatch<React.SetStateAction<UnlockedCardData[]>>;
-  realtimeLockSignal?: {
-    nonce: number;
-    groupId: string | null;
-    selectedCardIds: string[];
-    lockedAt: string;
-  } | null;
-  onBack: () => void;
-  onActivityLog?: (payload: ActivityLogPayload) => void;
-};
-
-const GROUP_PACK_META: Record<
+import {
+  areSameCardIdSet,
+  buildPackCards,
+  CARD_BACK_IMAGE,
+  createLockSignature,
+  GROUP_ORDER,
+  GROUP_PACK_META,
+  normalizeCardId,
+  preloadCardPackImages,
+  readCardPackUiState,
+  resolveGroup,
+  saveCardPackUiState,
+} from "../features/cardPack/cardPackModel";
+import { CardPackLockConfirmDialog } from "../features/cardPack/CardPackLockConfirmDialog";
+import { CardPackPageHeader } from "../features/cardPack/CardPackPageHeader";
+import { CardPackVisualEffects } from "../features/cardPack/CardPackVisualEffects";
+import type {
+  CardPackPageProps,
+  GroupCardPackLock,
   GroupKey,
-  {
-    title: string;
-    subtitle: string;
-    accent: string;
-    cardFace: string;
-    cardText: string;
-    cardMutedText: string;
-    stageGlow: string;
-    emoji: string;
-    coverImage: string;
-  }
-> = {
-  environment: {
-    title: "棲地保育局卡包",
-    subtitle: "棲地保育局專屬",
-    accent: "from-emerald-300 via-lime-200 to-green-300",
-    cardFace: "from-emerald-100 via-lime-100 to-green-200",
-    cardText: "text-emerald-950",
-    cardMutedText: "text-emerald-800",
-    stageGlow:
-      "border-emerald-200/45 bg-emerald-100/18 shadow-[0_0_70px_rgba(16,185,129,0.20)]",
-    emoji: "🌿",
-    coverImage: "/card/role-pack-conservation.webp",
-  },
-  government: {
-    title: "土地規劃局卡包",
-    subtitle: "土地規劃局專屬",
-    accent: "from-sky-300 via-blue-200 to-cyan-200",
-    cardFace: "from-sky-100 via-blue-100 to-cyan-200",
-    cardText: "text-sky-950",
-    cardMutedText: "text-sky-800",
-    stageGlow:
-      "border-sky-200/45 bg-sky-100/18 shadow-[0_0_70px_rgba(14,165,233,0.20)]",
-    emoji: "🏙️",
-    coverImage: "/card/role-pack-land.webp",
-  },
-  farming: {
-    title: "農業生計局卡包",
-    subtitle: "農業生計局專屬",
-    accent: "from-yellow-100 via-amber-100 to-orange-200",
-    cardFace: "from-yellow-100 via-amber-100 to-orange-200",
-    cardText: "text-amber-950",
-    cardMutedText: "text-amber-800",
-    stageGlow:
-      "border-amber-200/45 bg-amber-100/18 shadow-[0_0_70px_rgba(245,158,11,0.20)]",
-    emoji: "🌾",
-    coverImage: "/card/role-pack-farm.webp",
-  },
-  animal: {
-    title: "犬貓管理局卡包",
-    subtitle: "犬貓管理局專屬",
-    accent: "from-violet-300 via-purple-200 to-fuchsia-200",
-    cardFace: "from-violet-100 via-purple-100 to-fuchsia-200",
-    cardText: "text-violet-950",
-    cardMutedText: "text-violet-800",
-    stageGlow:
-      "border-violet-200/45 bg-violet-100/18 shadow-[0_0_70px_rgba(139,92,246,0.20)]",
-    emoji: "🐾",
-    coverImage: "/card/role-pack-animal.webp",
-  },
-  greenEnergy: {
-    title: "科技投資局卡包",
-    subtitle: "科技投資局專屬",
-    accent: "from-cyan-300 via-teal-200 to-emerald-200",
-    cardFace: "from-cyan-100 via-teal-100 to-emerald-200",
-    cardText: "text-teal-950",
-    cardMutedText: "text-teal-800",
-    stageGlow:
-      "border-teal-200/45 bg-teal-100/18 shadow-[0_0_70px_rgba(20,184,166,0.20)]",
-    emoji: "💻",
-    coverImage: "/card/role-pack-tech.webp",
-  },
-  education: {
-    title: "公眾教育局卡包",
-    subtitle: "公眾教育局專屬",
-    accent: "from-orange-200 via-amber-100 to-yellow-100",
-    cardFace: "from-orange-100 via-amber-100 to-yellow-100",
-    cardText: "text-orange-950",
-    cardMutedText: "text-orange-800",
-    stageGlow:
-      "border-orange-200/45 bg-orange-100/18 shadow-[0_0_70px_rgba(249,115,22,0.20)]",
-    emoji: "📚",
-    coverImage: "/card/role-pack-education.webp",
-  },
-};
-
-const GROUP_TEXT: Record<GroupKey, string[]> = {
-  environment: [
-    "強制劃設核心保育區",
-    "擴張石虎保護範圍",
-    "禁止棲地開發行動",
-    "讓出低風險保育區",
-    "縮減次要保護範圍",
-    "承擔棲地調查成本",
-    "協調開發緩衝區",
-    "聯合巡查棲地熱區",
-    "評估棲地破碎風險",
-  ],
-  government: [
-    "劃設開發專區",
-    "加速道路建設",
-    "擴大建設用地",
-    "放棄高收益開發區",
-    "縮減建設用地面積",
-    "延後道路開發時程",
-    "協調避開棲地開發",
-    "共議土地使用方案",
-    "整合分階段方案",
-  ],
-  farming: [
-    "擴張農地生產",
-    "維護農民耕作權",
-    "爭取農民補助",
-    "讓出部分農地作棲地",
-    "承擔友善農法成本",
-    "承擔犬隻管理成本",
-    "合作推動友善農法",
-    "平衡生計與保育方案",
-    "整合友善農業區",
-  ],
-  animal: [
-    "強化犬貓管制",
-    "禁止犬貓放養",
-    "集中管制高風險犬群",
-    "承擔犬貓收容成本",
-    "延後強制管制行動",
-    "免費協助農民改善犬隻管理",
-    "聯合巡查犬貓熱區",
-    "協調犬貓共管區",
-    "推動社區共管機制",
-  ],
-  greenEnergy: [
-    "優先開發科技園區",
-    "擴張能源設施",
-    "爭取企業進駐",
-    "放棄高收益開發地",
-    "縮小科技園區規模",
-    "承擔地方補償成本",
-    "協調低衝擊選址",
-    "配合調整開發設計",
-    "共創低衝擊示範區",
-  ],
-  education: [
-    "主導公眾倡議",
-    "掌控議題討論",
-    "擴大教育活動",
-    "承擔居民反彈壓力",
-    "讓出宣導資源支援他局",
-    "承接衝突溝通任務",
-    "聯合辦理政策說明",
-    "整合居民共識意見",
-    "建立溝通平台",
-  ],
-};
-
-const GROUP_ORDER: GroupKey[] = [
-  "environment",
-  "government",
-  "farming",
-  "animal",
-  "greenEnergy",
-  "education",
-];
-
-function normalizeCardId(card: UnlockedCardData) {
-  return typeof card === "string" ? card : card.id;
-}
-
-function resolveGroup(groupId?: string | null): GroupKey {
-  return (
-    [
-      "environment",
-      "government",
-      "farming",
-      "animal",
-      "greenEnergy",
-      "education",
-    ] as GroupKey[]
-  ).includes(groupId as GroupKey)
-    ? (groupId as GroupKey)
-    : "education";
-}
-
-type GroupCardPackLock = {
-  groupId: string;
-  selectedCardIds: string[];
-  lockedBy?: number | string | null;
-  lockedByName?: string | null;
-  reason?: string;
-  lockedAt: string;
-};
-
-type CardPackUiState = {
-  isOpened?: boolean;
-  selectedIds?: string[];
-  flippedIds?: string[];
-  lockReason?: string;
-  wheelRotation?: number;
-};
-
-function cardPackUiStorageKey(userId?: string | number | null) {
-  return `cityauncel_card_pack_ui_${userId || "guest"}`;
-}
-
-function readCardPackUiState(
-  userId?: string | number | null,
-): CardPackUiState {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(cardPackUiStorageKey(userId));
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as CardPackUiState;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveCardPackUiState(
-  userId: string | number | null | undefined,
-  state: CardPackUiState,
-) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(
-      cardPackUiStorageKey(userId),
-      JSON.stringify(state),
-    );
-  } catch {
-    // localStorage 失敗不影響主要流程。
-  }
-}
-
-function buildPackCards(group: GroupKey): PackCard[] {
-  const meta = GROUP_PACK_META[group];
-  return GROUP_TEXT[group].map((text, index) => ({
-    id: `${group}-pack-${index + 1}`,
-    title: `${meta.title.replace("卡包", "")} ${index + 1}`,
-    frontText: text,
-  }));
-}
-
-function createLockSignature(
-  groupId: string | null | undefined,
-  selectedCardIds: string[],
-  lockedAt: string,
-) {
-  return `${groupId || ""}:${lockedAt}:${selectedCardIds.map(String).sort().join("|")}`;
-}
-
-function areSameCardIdSet(left: string[], right: string[]) {
-  if (left.length !== right.length) return false;
-  const leftSorted = left.map(String).sort();
-  const rightSorted = right.map(String).sort();
-  return leftSorted.every((id, index) => id === rightSorted[index]);
-}
-
+  UnlockedCardData,
+  User,
+} from "../features/cardPack/cardPackModel";
 export default function CardPackPage({
   token,
   currentUser,
@@ -343,6 +48,9 @@ export default function CardPackPage({
   onBack,
   onActivityLog,
 }: CardPackPageProps) {
+  useEffect(() => {
+    preloadCardPackImages();
+  }, []);
   const [serverGroupId, setServerGroupId] = useState<string | null>(
     currentUser.groupId ?? null,
   );
@@ -374,6 +82,7 @@ export default function CardPackPage({
   const [isLocked, setIsLocked] = useState(false);
   const [message, setMessage] = useState("");
   const [showLockConfirmDialog, setShowLockConfirmDialog] = useState(false);
+  const [isLockSubmitting, setIsLockSubmitting] = useState(false);
   const [fadingCardIds, setFadingCardIds] = useState<string[]>([]);
   const [lockReason, setLockReason] = useState(
     typeof initialCardPackUiState.lockReason === "string"
@@ -421,7 +130,6 @@ export default function CardPackPage({
   const lastAppliedLockAtRef = useRef<string | null>(null);
   const lastAppliedLockSignatureRef = useRef<string | null>(null);
   const syncGroupLockInFlightRef = useRef(false);
-  const openedLockPollInFlightRef = useRef(false);
   const lockAnimationTimeoutsRef = useRef<number[]>([]);
   const pendingGroupLockIdsRef = useRef<string[] | null>(null);
   const pendingGroupLockShouldMessageRef = useRef(true);
@@ -471,7 +179,7 @@ export default function CardPackPage({
 
   const selectedCards = cards.filter((card) => selectedIds.includes(card.id));
   const trimmedLockReason = lockReason.trim();
-  const canLock = isGroupLeader && selectedIds.length === 3 && !isLocked;
+  const canLock = isGroupLeader && selectedIds.length === 3 && !isLocked && !isLockSubmitting;
   const canConfirmLock = canLock && trimmedLockReason.length >= 20;
   const wheelMetrics = useMemo(() => {
     const width = Math.max(320, wheelStageSize.width || 320);
@@ -507,7 +215,10 @@ export default function CardPackPage({
         window.clearTimeout(launchCompleteTimeoutRef.current);
       if (deniedPackTimeoutRef.current !== null)
         window.clearTimeout(deniedPackTimeoutRef.current);
-      clearLockAnimationTimeouts();
+      lockAnimationTimeoutsRef.current.forEach((timeoutId) =>
+        window.clearTimeout(timeoutId),
+      );
+      lockAnimationTimeoutsRef.current = [];
     };
   }, []);
 
@@ -549,7 +260,11 @@ export default function CardPackPage({
   }, [token]);
 
   async function syncGroupLockNow(
-    options: { showMessage?: boolean; autoOpenIfLocked?: boolean } = {},
+    options: {
+      showMessage?: boolean;
+      autoOpenIfLocked?: boolean;
+      resetIfUnlocked?: boolean;
+    } = {},
   ) {
     if (!token || syncGroupLockInFlightRef.current) return null;
 
@@ -562,7 +277,12 @@ export default function CardPackPage({
         : [];
       const lockedAt = lock?.lockedAt ? String(lock.lockedAt) : "";
 
-      if (!lock || !lockedAt || selectedCardIds.length !== 3) return null;
+      if (!lock || !lockedAt || selectedCardIds.length !== 3) {
+        if (options.resetIfUnlocked && isLockedRef.current) {
+          resetGroupLock({ showMessage: options.showMessage !== false });
+        }
+        return null;
+      }
 
       const lockGroupId = lock.groupId ? String(lock.groupId) : null;
       queueOrApplyIncomingGroupLock(lockGroupId, selectedCardIds, lockedAt, {
@@ -577,6 +297,47 @@ export default function CardPackPage({
     } finally {
       syncGroupLockInFlightRef.current = false;
     }
+  }
+
+
+  function handleRealtimeGroupCardPackEvent(payload: unknown) {
+    const data = (payload || {}) as {
+      groupId?: unknown;
+      lock?:
+        | {
+            selectedCardIds?: unknown[];
+            lockedAt?: unknown;
+          }
+        | null;
+    };
+    const eventGroup = data.groupId ? resolveGroup(String(data.groupId)) : null;
+
+    if (!data.lock) {
+      // 教師解除單組鎖定時只重置該組；解除全部鎖定時 groupId 會是 null，全部卡包頁都要回到九張牌。
+      if (!eventGroup || eventGroup === group) {
+        resetGroupLock({ showMessage: true });
+      }
+      return;
+    }
+
+    if (eventGroup && eventGroup !== group) return;
+
+    const selectedCardIds = Array.isArray(data.lock.selectedCardIds)
+      ? data.lock.selectedCardIds.map(String)
+      : [];
+    const lockedAt = data.lock.lockedAt ? String(data.lock.lockedAt) : "";
+    if (selectedCardIds.length !== 3 || !lockedAt) return;
+
+    queueOrApplyIncomingGroupLock(
+      eventGroup || group,
+      selectedCardIds,
+      lockedAt,
+      {
+        showMessage: true,
+        autoOpenIfLocked: !isGroupLeader,
+        allowGroupSwitch: false,
+      },
+    );
   }
 
   function stopWheelInertia() {
@@ -686,7 +447,7 @@ export default function CardPackPage({
     runLockedCardExitAnimation(selectedCardIds);
     mergeLockedCardsIntoInventory(selectedCardIds);
     if (options.showMessage !== false) {
-      setMessage("已鎖定這三張卡牌。");
+      setMessage("組長已鎖定本組三張卡牌，畫面已同步只保留最終卡牌。");
     }
   }
 
@@ -777,8 +538,18 @@ export default function CardPackPage({
 
     const shouldShowMessage = options.showMessage !== false;
 
-    // 組員端若還停在卡包封面，先完整滑開/彈出卡包，再立刻自動套用組長鎖定的三張卡。
-    // 只有「主動同步」或「已經在開包動畫中」才自動開包，避免組長一送出就強迫組員離開原本畫面。
+    if (
+      isLockedRef.current &&
+      areSameCardIdSet(selectedIdsRef.current, normalizedIds)
+    ) {
+      if (shouldShowMessage && !message.includes("已同步只保留最終卡牌")) {
+        setMessage("組長已鎖定本組三張卡牌，畫面已同步只保留最終卡牌。");
+      }
+      return;
+    }
+
+    // 組員端收到組長鎖定時，無論目前停在封面或正在開包，都要同步進入
+    //「開包動畫完成後只留下三張最終卡」的狀態。
     if (
       !isGroupLeader &&
       (!isOpenedRef.current ||
@@ -788,14 +559,9 @@ export default function CardPackPage({
       pendingGroupLockIdsRef.current = normalizedIds;
       pendingGroupLockShouldMessageRef.current = shouldShowMessage;
       if (shouldShowMessage) {
-        setMessage("組長已完成選牌，開包後會同步顯示三張最終決策卡。");
+        setMessage("組長已鎖定本組三張卡，正在同步開啟並套用最終決策卡。");
       }
-      if (
-        options.autoOpenIfLocked &&
-        !isOpenedRef.current &&
-        !isCuttingPackRef.current &&
-        !isLaunchingCardsRef.current
-      ) {
+      if (!isOpenedRef.current && !isCuttingPackRef.current && !isLaunchingCardsRef.current) {
         openPack({ silentActivityLog: true, syncLockAfterOpen: true });
       }
       return;
@@ -856,6 +622,7 @@ export default function CardPackPage({
     setCardSwipePreview({ cardId: null, offsetX: 0 });
     setShowLockConfirmDialog(false);
     setLockReason("");
+    setIsLockSubmitting(false);
     pendingGroupLockIdsRef.current = null;
     pendingGroupLockShouldMessageRef.current = true;
     pendingIncomingGroupLockRef.current = null;
@@ -877,7 +644,7 @@ export default function CardPackPage({
 
       syncGroupLockInFlightRef.current = true;
       try {
-        const data = await getGroupCardPackLock(token);
+        const data = await getGroupCardPackLock(token, { cache: "no-store" });
         const lock = data?.lock as GroupCardPackLock | null | undefined;
         const selectedCardIds = Array.isArray(lock?.selectedCardIds)
           ? lock.selectedCardIds.map(String)
@@ -886,12 +653,7 @@ export default function CardPackPage({
 
         if (cancelled) return;
         if (!lock || !lockedAt || selectedCardIds.length !== 3) {
-          if (
-            isLocked ||
-            hiddenCardIds.length > 0 ||
-            disappearingCardIds.length > 0 ||
-            fadingCardIds.length > 0
-          ) {
+          if (isLockedRef.current) {
             resetGroupLock({ showMessage: true });
           }
           return;
@@ -899,6 +661,7 @@ export default function CardPackPage({
         const lockGroupId = lock?.groupId ? String(lock.groupId) : null;
         queueOrApplyIncomingGroupLock(lockGroupId, selectedCardIds, lockedAt, {
           showMessage: true,
+          autoOpenIfLocked: !isGroupLeader,
           allowGroupSwitch: true,
         });
       } catch (error) {
@@ -909,8 +672,11 @@ export default function CardPackPage({
     }
 
     syncGroupLock();
-    // 鎖定/解鎖以 SSE 即時推送為主；5 秒備援可避免網路短暫斷線時組員等太久。
-    intervalId = window.setInterval(syncGroupLock, 5000);
+    // 鎖定/解鎖以 SSE 即時推送為主；備援輪詢只保留低頻校正，
+    // 避免卡包頁在多人同時操作時產生過多 API 請求。
+    intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") syncGroupLock();
+    }, 20000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") syncGroupLock();
@@ -922,117 +688,35 @@ export default function CardPackPage({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (intervalId !== null) window.clearInterval(intervalId);
     };
-    // 這個備援輪詢需要穩定維持 5 秒一次；queue/reset 會讀取最新畫面狀態，
-    // 但不應讓每次卡牌動畫 render 都重建 interval，否則組員同步動畫可能被中斷。
+    // 這個備援輪詢只跟 token / 組別 / 組長身分有關，避免動畫狀態變動時重建 interval。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    token,
-    group,
-    cards,
-    isLocked,
-    hiddenCardIds.length,
-    disappearingCardIds.length,
-    fadingCardIds.length,
-  ]);
+  }, [token, group, isGroupLeader]);
 
+  // 卡包頁本身也直接訂閱卡包鎖定事件，讓正在卡包頁的組員不必依賴首頁轉發。
+  // 同一筆鎖定仍會用 signature 去重，所以首頁轉發和本頁直連同時到達也只會播放一次動畫。
   useEffect(() => {
     if (!token) return;
 
     return subscribeRealtime(token, (event) => {
       if (event.type !== "group-card-pack-lock") return;
-      const payload = (event.payload || {}) as {
-        groupId?: unknown;
-        lock?: { selectedCardIds?: unknown[]; lockedAt?: unknown } | null;
-      };
-      const eventGroupId = payload.groupId ? String(payload.groupId) : null;
-
-      if (!payload.lock) {
-        if (eventGroupId && resolveGroup(eventGroupId) !== group) return;
-        lastAppliedLockAtRef.current = null;
-        lastAppliedLockSignatureRef.current = null;
-        resetGroupLock({ showMessage: true });
-        return;
-      }
-
-      const selectedCardIds = Array.isArray(payload.lock.selectedCardIds)
-        ? payload.lock.selectedCardIds.map(String)
-        : [];
-      const lockedAt = payload.lock.lockedAt
-        ? String(payload.lock.lockedAt)
-        : "";
-      if (selectedCardIds.length !== 3 || !lockedAt) return;
-
-      queueOrApplyIncomingGroupLock(eventGroupId, selectedCardIds, lockedAt, {
-        showMessage: true,
-        allowGroupSwitch: true,
-        forceApply: !isGroupLeader && isOpenedRef.current,
-      });
+      handleRealtimeGroupCardPackEvent(event.payload);
     });
-    // SSE 訂閱只需要在 token 或小組切換時重建；事件處理函式會使用當前 render 的狀態，
-    // 避免加入 queue/reset 後造成每次選牌或動畫更新都重新訂閱。
+    // SSE 連線只跟 token 綁定；group / isGroupLeader 變動時，事件處理函式會讀最新 render 的值。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [group, token]);
+  }, [token]);
 
-  useEffect(() => {
-    if (!token || isGroupLeader || !isOpened || isLocked) return;
-
-    let cancelled = false;
-    let intervalId: number | null = null;
-
-    async function pollOpenedPackLock() {
-      if (openedLockPollInFlightRef.current) return;
-
-      openedLockPollInFlightRef.current = true;
-      try {
-        const data = await getGroupCardPackLock(token, { cache: "no-store" });
-        if (cancelled) return;
-
-        const lock = data?.lock as GroupCardPackLock | null | undefined;
-        const selectedCardIds = Array.isArray(lock?.selectedCardIds)
-          ? lock.selectedCardIds.map(String)
-          : [];
-        const lockedAt = lock?.lockedAt ? String(lock.lockedAt) : "";
-        if (!lock || selectedCardIds.length !== 3 || !lockedAt) return;
-
-        const lockGroupId = lock.groupId ? String(lock.groupId) : null;
-        queueOrApplyIncomingGroupLock(lockGroupId, selectedCardIds, lockedAt, {
-          showMessage: true,
-          allowGroupSwitch: true,
-          forceApply: true,
-        });
-      } catch (error) {
-        console.error("?郊撠??∪?????仃??", error);
-      } finally {
-        openedLockPollInFlightRef.current = false;
-      }
-    }
-
-    void pollOpenedPackLock();
-    intervalId = window.setInterval(pollOpenedPackLock, 900);
-
-    return () => {
-      cancelled = true;
-      if (intervalId !== null) window.clearInterval(intervalId);
-    };
-    // 這條輪詢只服務「組員已打開九張卡、但尚未鎖定」的即時同步保底。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, isGroupLeader, isOpened, isLocked, group, cards]);
+  // 首頁也會轉發卡包鎖定事件；保留這條路徑，讓未來若卡包頁直連失敗仍可補同步。
 
   useEffect(() => {
     if (!realtimeLockSignal) return;
 
-    queueOrApplyIncomingGroupLock(
-      realtimeLockSignal.groupId,
-      realtimeLockSignal.selectedCardIds,
-      realtimeLockSignal.lockedAt,
+    handleRealtimeGroupCardPackEvent(
       {
-        showMessage: true,
-        allowGroupSwitch: true,
-        forceApply: !isGroupLeader && isOpenedRef.current,
+        groupId: realtimeLockSignal.groupId,
+        lock: realtimeLockSignal.lock,
       },
     );
-    // 首頁即時通道收到組長鎖定後，直接推進目前卡包頁狀態；
-    // queueOrApplyIncomingGroupLock 會用最新 refs 判斷是否已經真的鎖定。
+    // 首頁全域 SSE 通道收到組長鎖定 / 教師解鎖後，直接推進目前卡包頁狀態。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [realtimeLockSignal?.nonce]);
 
@@ -1084,7 +768,7 @@ export default function CardPackPage({
     wheelDragRef.current = {
       startX: event.clientX,
       lastX: event.clientX,
-      lastTime: performance.now(),
+      lastTime: event.timeStamp,
       velocity: 0,
       dragging: false,
     };
@@ -1095,7 +779,7 @@ export default function CardPackPage({
     const drag = wheelDragRef.current;
     if (!drag) return;
 
-    const now = performance.now();
+    const now = event.timeStamp;
     const dx = event.clientX - drag.lastX;
     const totalDx = event.clientX - drag.startX;
     const dt = Math.max(1, now - drag.lastTime);
@@ -1142,7 +826,7 @@ export default function CardPackPage({
     // 組員手動劃開/點開卡包的瞬間，先主動查一次伺服器。
     // 如果組長已經鎖定，這次開包動畫結束後會直接只留下組長選的三張牌。
     if (!isGroupLeader) {
-      void syncGroupLockNow({ showMessage: true, autoOpenIfLocked: false });
+      void syncGroupLockNow({ showMessage: true, autoOpenIfLocked: true });
     }
 
     openPack();
@@ -1281,7 +965,7 @@ export default function CardPackPage({
   }
 
   function toggleCardSelect(cardId: string) {
-    if (!isOpened || isLocked) return;
+    if (!isOpened || isLocked || isLockSubmitting) return;
     setSelectedIds((prev) => {
       if (prev.includes(cardId)) return prev.filter((id) => id !== cardId);
       if (prev.length >= 3) {
@@ -1368,7 +1052,7 @@ export default function CardPackPage({
       return;
     }
 
-    if (!canLock) return;
+    if (!canLock || isLockSubmitting) return;
 
     setShowLockConfirmDialog(true);
   }
@@ -1378,117 +1062,104 @@ export default function CardPackPage({
       setMessage("只有組長可以鎖定卡牌。");
       return;
     }
-    if (!canLock) return;
+    if (!canLock || isLockSubmitting) return;
 
-    if (lockReason.trim().length < 20) {
+    const reasonForSave = lockReason.trim();
+    if (reasonForSave.length < 20) {
       setMessage("鎖定理由至少需要 20 個字。");
       return;
     }
 
-    setShowLockConfirmDialog(false);
-
     const lockedSelectedIds = [...selectedIds];
-    const nextCards: UnlockedCardData[] = (() => {
-      const unlockedIdSet = new Set(unlockedCards.map(normalizeCardId));
-      return [
-        ...unlockedCards,
-        ...selectedCards
-          .filter((card) => !unlockedIdSet.has(card.id))
-          .map((card) => ({
-            id: card.id,
-            content: card.frontText,
-            unlockedAt: new Date().toISOString(),
-            source: "group_card_pack",
-            groupId: group,
-          })),
-      ];
-    })();
-
-    applyGroupLock(lockedSelectedIds, { showMessage: false });
-    setUnlockedCards(nextCards);
-    setMessage(
-      "已鎖定三張卡牌！其餘卡牌正在翻成背面並消失，同組成員也會同步看到效果。",
+    const lockedSelectedCards = cards.filter((card) =>
+      lockedSelectedIds.includes(card.id),
     );
-    onActivityLog?.({
-      eventType: "card_pack_lock",
-      eventLabel: "鎖定石虎卡包三張卡牌",
-      targetType: "role_card_pack",
-      targetId: group,
-      newValue: {
-        selectedCardIds: lockedSelectedIds,
-        reason: trimmedLockReason,
-      },
-      metadata: {
-        groupId: group,
-        cards: selectedCards,
-        reason: trimmedLockReason,
-      },
-    });
+    if (lockedSelectedIds.length !== 3 || lockedSelectedCards.length !== 3) {
+      setMessage("請確認已選滿三張卡牌後再送出。");
+      return;
+    }
+
+    setShowLockConfirmDialog(false);
+    setIsLockSubmitting(true);
+    setMessage("正在送出鎖定結果，請稍候⋯⋯");
 
     try {
       const lockData = await saveGroupCardPackLock(token, {
         selectedCardIds: lockedSelectedIds,
-        reason: trimmedLockReason,
+        reason: reasonForSave,
       });
       const serverLockedAt = lockData?.lock?.lockedAt
         ? String(lockData.lock.lockedAt)
-        : null;
-      if (serverLockedAt) {
-        lastAppliedLockAtRef.current = serverLockedAt;
-        lastAppliedLockSignatureRef.current = createLockSignature(
-          group,
-          lockedSelectedIds,
-          serverLockedAt,
-        );
-      }
+        : new Date().toISOString();
 
-      await saveInquiryCards(token, nextCards);
+      lastAppliedLockAtRef.current = serverLockedAt;
+      lastAppliedLockSignatureRef.current = createLockSignature(
+        group,
+        lockedSelectedIds,
+        serverLockedAt,
+      );
+
+      const nextCards: UnlockedCardData[] = (() => {
+        const unlockedIdSet = new Set(unlockedCards.map(normalizeCardId));
+        return [
+          ...unlockedCards,
+          ...lockedSelectedCards
+            .filter((card) => !unlockedIdSet.has(card.id))
+            .map((card) => ({
+              id: card.id,
+              content: card.frontText,
+              unlockedAt: new Date().toISOString(),
+              source: "group_card_pack",
+              groupId: group,
+            })),
+        ];
+      })();
+
+      applyGroupLock(lockedSelectedIds, { showMessage: false });
+      setMessage(
+        "已成功鎖定三張卡牌！其餘卡牌正在翻成背面並消失，同組成員也會同步看到效果。",
+      );
+      onActivityLog?.({
+        eventType: "card_pack_lock",
+        eventLabel: "鎖定石虎卡包三張卡牌",
+        targetType: "role_card_pack",
+        targetId: group,
+        newValue: {
+          selectedCardIds: lockedSelectedIds,
+          reason: reasonForSave,
+        },
+        metadata: {
+          groupId: group,
+          cards: lockedSelectedCards,
+          reason: reasonForSave,
+        },
+      });
+
+      try {
+        await saveInquiryCards(token, nextCards);
+      } catch (cardSaveError) {
+        console.error("卡包卡牌已鎖定，但寫入個人卡片資料失敗，將由 pending queue 補送：", cardSaveError);
+      }
     } catch (error) {
-      console.error("儲存卡包卡牌失敗：", error);
+      console.error("儲存卡包鎖定失敗：", error);
       setMessage(
         error instanceof Error
           ? error.message
-          : "卡牌已在畫面鎖定，但同步伺服器失敗，請稍後再試。",
+          : "送出鎖定失敗，畫面仍保留九張卡牌，請確認網路後再試一次。",
       );
+    } finally {
+      setIsLockSubmitting(false);
     }
   }
 
   return (
     <main className="game-adventure-page uiux-page-shell relative min-h-screen overflow-x-hidden px-3 py-3 text-white sm:px-6 sm:py-4">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(252,211,77,0.22),transparent_26%),radial-gradient(circle_at_18%_72%,rgba(34,197,94,0.16),transparent_30%),radial-gradient(circle_at_88%_80%,rgba(125,211,252,0.16),transparent_34%)]" />
-      {energyBurstActive ? (
-        <>
-          <motion.div
-            className="pointer-events-none absolute inset-0 z-40 bg-white"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.95, 0] }}
-            transition={{ duration: 0.45 }}
-          />
-          <motion.div
-            className="pointer-events-none absolute left-1/2 top-1/2 z-40 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[14px] border-amber-100/80"
-            initial={{ scale: 0.2, opacity: 1 }}
-            animate={{ scale: 5.2, opacity: 0 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-          />
-        </>
-      ) : null}
-      <div className="pointer-events-none absolute inset-0 opacity-35 bg-[linear-gradient(120deg,transparent_0_12px,rgba(255,255,255,0.06)_13px,transparent_14px)] bg-[size:36px_36px]" />
-
-      <div className="relative z-20 mx-auto grid w-full max-w-6xl grid-cols-[auto_1fr] items-center gap-3 sm:grid-cols-[auto_1fr_auto]">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-black tracking-[0.12em] text-black/85 backdrop-blur transition"
-        >
-          <ArrowLeft className="h-4 w-4" /> 回首頁
-        </button>
-
-        <h1 className="justify-self-center rounded-[28px] border border-white/28 bg-black/34 px-4 py-2 text-center font-serif text-2xl font-black tracking-[0.08em] text-white shadow-[0_10px_34px_rgba(0,0,0,0.32),0_0_28px_rgba(255,255,255,0.12)] backdrop-blur-sm sm:px-5 sm:py-3 sm:text-5xl lg:text-6xl">
-          {isOpened ? meta.title : "角色卡包"}
-        </h1>
-
-        <div className="hidden w-[104px] sm:block" aria-hidden="true" />
-      </div>
+      <CardPackVisualEffects energyBurstActive={energyBurstActive} />
+      <CardPackPageHeader
+        isOpened={isOpened}
+        packTitle={meta.title}
+        onBack={onBack}
+      />
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100svh-72px)] w-full max-w-6xl flex-col items-center justify-start gap-4 pb-3 pt-4">
         {!isOpened ? (
@@ -1536,6 +1207,9 @@ export default function CardPackPage({
                           <img
                             src={packMeta.coverImage}
                             alt={`${packMeta.title}封面`}
+                            loading="eager"
+                            decoding="async"
+                            {...({ fetchpriority: isOwnPack ? "high" : "low" } as Record<string, string>)}
                             className="h-full w-full object-contain [filter:drop-shadow(0_18px_22px_rgba(0,0,0,0.26))]"
                             draggable={false}
                           />
@@ -1635,6 +1309,9 @@ export default function CardPackPage({
                           <motion.img
                             src={packMeta.coverImage}
                             alt={`${packMeta.title}封面`}
+                            loading="eager"
+                            decoding="async"
+                            {...({ fetchpriority: "high" } as Record<string, string>)}
                             className="h-[calc(100%-64px)] w-full object-contain [filter:drop-shadow(0_0_28px_rgba(253,224,71,0.72))_drop-shadow(0_18px_24px_rgba(0,0,0,0.28))]"
                             style={{ marginTop: 32 }}
                             draggable={false}
@@ -1866,10 +1543,10 @@ export default function CardPackPage({
                   type="button"
                   data-lock-button="true"
                   onClick={requestLockSelection}
-                  disabled={!canLock}
+                  disabled={!canLock || isLockSubmitting}
                   className="inline-flex items-center gap-2 rounded-full border-2 border-yellow-100 bg-[linear-gradient(135deg,#fde047,#f59e0b)] px-6 py-3 text-sm font-black tracking-[0.14em] text-[#2f1600] shadow-[0_0_0_3px_rgba(255,255,255,0.55),0_0_34px_rgba(250,204,21,0.58),0_14px_34px_rgba(120,53,15,0.22)] transition disabled:cursor-not-allowed disabled:border-white/20 disabled:bg-none disabled:bg-white/12 disabled:text-white/38 disabled:shadow-none"
                 >
-                  <Lock className="h-4 w-4" /> 鎖定
+                  <Lock className="h-4 w-4" /> {isLockSubmitting ? "送出中" : "鎖定"}
                 </button>
               </div>
             </div>
@@ -2048,6 +1725,9 @@ export default function CardPackPage({
                                   <img
                                     src={CARD_BACK_IMAGE}
                                     alt="石虎卡牌背面"
+                                    loading="eager"
+                                    decoding="async"
+                                    {...({ fetchpriority: "high" } as Record<string, string>)}
                                     className="card-pack-back-image h-full w-full object-contain"
                                     draggable={false}
                                   />
@@ -2108,82 +1788,16 @@ export default function CardPackPage({
       </section>
 
       {showLockConfirmDialog ? (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-label="確認送出鎖定卡牌"
-          onClick={() => setShowLockConfirmDialog(false)}
-        >
-          <div
-            className="w-full max-w-3xl rounded-[34px] border border-[#ead7a7] bg-[#fff8e6] p-6 text-center text-[#332417] shadow-[0_28px_90px_rgba(59,35,13,0.28),0_0_54px_rgba(251,191,36,0.24)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300 bg-amber-100 text-2xl shadow-[0_0_30px_rgba(251,191,36,0.25)]">
-              🔒
-            </div>
-
-            <h2 className="text-2xl font-black tracking-[0.08em] text-[#3f2412]">
-              確認送出鎖定卡牌？
-            </h2>
-            <p className="mt-3 text-sm font-bold leading-relaxed text-[#6b4b2f]">
-              鎖定後會將這三張卡牌同步給所有組員。確定要鎖定目前選擇的三張卡牌嗎？
-            </p>
-
-            <div className="mt-5 grid max-h-[44vh] gap-3 overflow-y-auto rounded-[26px] border border-amber-200 bg-white/72 p-3 text-left shadow-inner md:grid-cols-3">
-              {selectedCards.map((card) => (
-                <div
-                  key={card.id}
-                  className={`overflow-hidden rounded-[22px] border border-white/75 bg-gradient-to-br ${meta.cardFace} p-3 shadow-[0_10px_24px_rgba(120,53,15,0.12)]`}
-                >
-                  <div className="mb-2">
-                    <span className={`text-sm font-black ${meta.cardText}`}>
-                      {card.title}
-                    </span>
-                  </div>
-                  <div className="rounded-2xl bg-white/70 px-3 py-3 shadow-sm">
-                    <p
-                      className={`text-sm font-black leading-6 ${meta.cardText}`}
-                    >
-                      {card.frontText}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <textarea
-              value={lockReason}
-              onChange={(event) => setLockReason(event.target.value)}
-              placeholder="請輸入至少 20 字，說明為什麼選擇這三張牌..."
-              className="mt-5 h-32 w-full rounded-2xl border-2 border-amber-200 bg-white p-4 text-sm font-bold text-[#3f3023] outline-none placeholder:text-[#9a7a55] focus:border-amber-400 focus:ring-4 focus:ring-amber-200/55"
-            />
-
-            <p
-              className={`mt-2 text-xs font-bold tracking-[0.12em] ${trimmedLockReason.length >= 20 ? "text-emerald-700" : "text-amber-700"}`}
-            >
-              目前字數：{trimmedLockReason.length} / 至少 20 字
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setShowLockConfirmDialog(false)}
-                className="rounded-2xl border border-[#d8c79f] bg-white px-4 py-3 text-sm font-black tracking-[0.12em] text-[#5b4630] transition hover:bg-[#fff1d4]"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={lockSelection}
-                disabled={!canConfirmLock}
-                className="rounded-2xl border border-amber-300 bg-[linear-gradient(135deg,#facc15,#f59e0b)] px-4 py-3 text-sm font-black tracking-[0.12em] text-[#3f2412] shadow-[0_0_28px_rgba(251,191,36,0.34)] transition disabled:cursor-not-allowed disabled:border-stone-200 disabled:bg-none disabled:bg-stone-100 disabled:text-stone-400 disabled:shadow-none"
-              >
-                確認送出鎖定
-              </button>
-            </div>
-          </div>
-        </div>
+        <CardPackLockConfirmDialog
+          selectedCards={selectedCards}
+          meta={meta}
+          lockReason={lockReason}
+          trimmedLockReasonLength={trimmedLockReason.length}
+          canConfirmLock={canConfirmLock}
+          onLockReasonChange={setLockReason}
+          onCancel={() => setShowLockConfirmDialog(false)}
+          onConfirm={lockSelection}
+        />
       ) : null}
     </main>
   );

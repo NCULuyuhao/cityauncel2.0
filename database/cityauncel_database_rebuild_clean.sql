@@ -33,6 +33,7 @@ DROP TABLE IF EXISTS `decisioncard_logs`;
 DROP TABLE IF EXISTS `decisioncards`;
 DROP TABLE IF EXISTS `barrages`;
 DROP TABLE IF EXISTS `map_action_logs`;
+DROP TABLE IF EXISTS `map_locks`;
 DROP TABLE IF EXISTS `map_choices`;
 DROP TABLE IF EXISTS `student_activity_logs`;
 DROP TABLE IF EXISTS `student_unlocked_cards`;
@@ -227,6 +228,26 @@ CREATE TABLE `map_choices` (
   KEY `idx_map_choices_scope_district` (`scope`,`district_name`),
   CONSTRAINT `fk_map_choices_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地圖目前選擇主表：統一保存個人、小組、全班對每個地區的目前選擇；歷程另存 map_action_logs。';
+
+
+-- map_locks
+CREATE TABLE `map_locks` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `scope` enum('personal','group') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'personal=學生個人地圖鎖定, group=組長小組地圖鎖定',
+  `owner_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'personal=user_id, group=group_id',
+  `user_id` int DEFAULT NULL,
+  `group_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `locked_by_user_id` int NOT NULL,
+  `locked_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_map_locks_scope_owner` (`scope`,`owner_id`),
+  KEY `idx_map_locks_user` (`user_id`),
+  KEY `idx_map_locks_group` (`group_id`),
+  KEY `idx_map_locks_locked_by` (`locked_by_user_id`),
+  CONSTRAINT `fk_map_locks_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_map_locks_locked_by_user` FOREIGN KEY (`locked_by_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地圖流程鎖定主表：保存個人地圖與小組地圖是否已完成鎖定。';
 
 -- map_action_logs
 CREATE TABLE `map_action_logs` (

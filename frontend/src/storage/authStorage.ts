@@ -4,7 +4,7 @@
  * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
  */
 
-import type { AuthUser } from "@/pages/HomePage";
+import type { AuthUser } from "@/features/home/homePageTypes";
 
 const TOKEN_KEY = "cityauncel_token";
 const USER_KEY = "cityauncel_user";

@@ -760,7 +760,11 @@ export default function BehaviorRecord({ onBack, token }: BehaviorRecordProps) {
   }, [token]);
 
   useEffect(() => {
-    void loadDashboard();
+    const timer = window.setTimeout(() => {
+      void loadDashboard();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [loadDashboard]);
 
   const metricData = data?.metrics;

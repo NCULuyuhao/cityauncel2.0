@@ -22,7 +22,8 @@
   }
 
   html {
-    overflow-y: auto !important;
+    overflow-y: scroll !important;
+    scrollbar-gutter: stable !important;
   }
 
   body,
@@ -30,6 +31,7 @@
     min-width: 320px;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    scrollbar-gutter: stable !important;
   }
 }
 

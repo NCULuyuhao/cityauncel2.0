@@ -83,14 +83,8 @@
     transform: translateZ(0);
   }
 
-  .backdrop-blur,
-  .backdrop-blur-sm,
-  .backdrop-blur-md,
-  .backdrop-blur-lg,
-  .backdrop-blur-xl {
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-  }
+  /* 不在 iOS Safari 強制重新啟用 backdrop blur。
+     大面積 blur 會讓滑動時反覆重繪，實際降級交給 performance-tuning.css 控制。 */
 
   .card-pack-card-rotator,
   .card-pack-card-face {

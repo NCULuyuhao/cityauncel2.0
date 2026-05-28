@@ -30,23 +30,23 @@ export function HomeHeader({
         </div>
 
         <div className="order-1 min-w-0 text-center min-[700px]:order-2">
-          <h1 className="game-title-text game-major-title whitespace-nowrap text-[clamp(2.35rem,5.4vw,4.6rem)] font-black leading-tight tracking-[0.14em] md:tracking-[0.18em]">
+          <h1 className="game-title-text game-major-title whitespace-nowrap text-[clamp(2.35rem,5.2vw,4.5rem)] font-semibold leading-tight tracking-[0.1em] md:tracking-[0.13em]">
             淺山守望者
           </h1>
           <div className="mx-auto mt-3 h-px w-[min(12rem,70%)] bg-gradient-to-r from-transparent via-stone-400 to-transparent" />
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {isCardPackOpen ? (
               <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                className="uiux-home-cardpack-slot mt-5 flex justify-center"
+                initial={{ opacity: 0, y: -8, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                transition={{ duration: 0.28 }}
-                className="mt-5 flex justify-center"
+                exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
               >
                 <button
                   type="button"
                   onClick={onOpenCardPack}
-                  className="card-pack-sparkle-button game-primary-button relative flex h-[52px] min-w-[190px] items-center justify-center rounded-2xl px-6 text-sm font-black tracking-[0.18em] active:translate-y-0 active:scale-[0.98] sm:text-base"
+                  className="card-pack-sparkle-button game-primary-button home-action-label relative flex h-[52px] min-w-[190px] items-center justify-center rounded-2xl px-6 text-sm font-semibold tracking-[0.08em] active:translate-y-0 active:scale-[0.98] sm:text-base"
                 >
                   角色卡包
                 </button>

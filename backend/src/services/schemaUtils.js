@@ -91,6 +91,46 @@ async function ensureMapChoicesTable(connection = pool) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地圖目前選擇主表：統一保存個人、小組、全班對每個地區的目前選擇；歷程另存 map_action_logs。'`,
   );
 
+  await connection.query(
+    `CREATE TABLE IF NOT EXISTS map_locks (
+      id bigint unsigned NOT NULL AUTO_INCREMENT,
+      scope enum('personal','group') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'personal=學生個人地圖鎖定, group=組長小組地圖鎖定',
+      owner_id varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'personal=user_id, group=group_id',
+      user_id int DEFAULT NULL,
+      group_id varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+      locked_by_user_id int NOT NULL,
+      locked_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uk_map_locks_scope_owner (scope, owner_id),
+      KEY idx_map_locks_user (user_id),
+      KEY idx_map_locks_group (group_id),
+      KEY idx_map_locks_locked_by (locked_by_user_id),
+      CONSTRAINT fk_map_locks_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+      CONSTRAINT fk_map_locks_locked_by_user FOREIGN KEY (locked_by_user_id) REFERENCES users (id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地圖流程鎖定主表：保存個人地圖與小組地圖是否已完成鎖定。'`,
+  );
+
+
+  await connection.query(
+    `CREATE TABLE IF NOT EXISTS map_action_logs (
+      id int NOT NULL AUTO_INCREMENT,
+      user_id int DEFAULT NULL,
+      scope varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+      group_id varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+      district_name varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+      previous_choice varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+      new_choice varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+      action_type varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_map_action_logs_user (user_id),
+      KEY idx_map_action_logs_group (group_id),
+      KEY idx_map_action_logs_district (district_name),
+      CONSTRAINT fk_map_action_logs_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地圖操作歷程：個人、小組、全班地圖選擇改變紀錄。'`,
+  );
+
   if (await tableExists("map_user_choices")) {
     await connection.query(
       `INSERT IGNORE INTO map_choices (scope, owner_id, user_id, district_name, choice, created_at, updated_at)
