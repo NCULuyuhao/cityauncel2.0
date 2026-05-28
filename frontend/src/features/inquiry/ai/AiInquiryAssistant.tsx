@@ -43,6 +43,9 @@ import {
   readFocusedInputContext,
 } from "./aiHelperUtils";
 
+const COLLECTION_CHECKPOINT_ONLY_MESSAGE =
+  "該功能請於線索蒐集站的時候才可以使用。";
+
 // AI 幫幫忙主元件：集中管理開關、投幣、幫助類型、對話與使用次數。
 export default function AiInquiryAssistant({
   token,
@@ -147,7 +150,11 @@ export default function AiInquiryAssistant({
       setHelpEnded(stored.helpEnded);
       setGoodbye(stored.goodbye);
       setGapScope(stored.gapScope || null);
-      setMessages(stored.messages || []);
+      setMessages(
+        (stored.messages || []).filter(
+          (message) => message.text !== COLLECTION_CHECKPOINT_ONLY_MESSAGE,
+        ),
+      );
     }, 0);
     return () => window.clearTimeout(timer);
   }, [shouldRender, storageKey]);
@@ -693,6 +700,12 @@ export default function AiInquiryAssistant({
     window.setTimeout(() => setBlockedNeed(null), 620);
   }
 
+  function quietlyBlockNeed(needType: AiNeedType) {
+    setBlockedNeed(needType);
+    setStatusMessage("");
+    window.setTimeout(() => setBlockedNeed(null), 620);
+  }
+
   function chooseNeed(needType: AiNeedType) {
     if (helpCredits <= 0) {
       setStatusMessage("AI 幫助券已用完，請續費後再選擇新的幫助。");
@@ -710,7 +723,7 @@ export default function AiInquiryAssistant({
 
     if (needType === "reason") {
       if (!isCheckpoint || !hasCheckpointCards) {
-        showBlockedNeed(needType, "該功能請於線索蒐集站的時候才可以使用。");
+        quietlyBlockNeed(needType);
         return;
       }
     }
@@ -726,7 +739,7 @@ export default function AiInquiryAssistant({
         Number(runtimeContext.collectionReflectionMinLength) || 1,
       );
       if (!isCheckpoint) {
-        showBlockedNeed(needType, "該功能請於線索蒐集站的時候才可以使用。");
+        quietlyBlockNeed(needType);
         return;
       }
       if (!reasonText || reasonText.length < minLength) {

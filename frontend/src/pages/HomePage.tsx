@@ -1918,31 +1918,29 @@ export default function HomePage() {
     );
   }
 
-  function startNewExploration() {
+  async function startNewExploration() {
     if (!isInquiryTaskOpen && !isTeacher) return;
 
     const nextInquiryOrder = finalSummaries.length + 1;
     setOrientationMainChoice("");
     setOrientationTextInput("");
-    setActiveInquiryRecordOrder(nextInquiryOrder);
 
-    goPage("cards");
-
-    window.setTimeout(() => {
+    try {
       if (token) {
-        void createInquiryRecord(token, nextInquiryOrder).catch((error) => {
-          // The actual inquiry plan/final summary save paths are idempotent and can still
-          // create/update this record. Do not block the page transition on cloud latency.
-          console.error("背景建立新的案件調查紀錄失敗，後續儲存流程仍會重試：", error);
-        });
+        await createInquiryRecord(token, nextInquiryOrder);
       }
+      setActiveInquiryRecordOrder(nextInquiryOrder);
+    } catch (error) {
+      console.error("建立新的案件調查紀錄失敗：", error);
+      return;
+    }
 
-      logActivity({
-        eventType: "exploration_start",
-        eventLabel: `開始${getInvestigationCaseByOrder(nextInquiryOrder).title}`,
-        targetType: "exploration",
-      });
-    }, 0);
+    logActivity({
+      eventType: "exploration_start",
+      eventLabel: `開始${getInvestigationCaseByOrder(nextInquiryOrder).title}`,
+      targetType: "exploration",
+    });
+    goPage("cards");
   }
 
   async function toggleFullscreen() {

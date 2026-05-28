@@ -148,22 +148,18 @@ export function useInquirySubmission<TCard, TEvidenceCard, TSummary, TIntroStage
       collectionReflections: collectionReflectionRecords,
     } as TSummary;
 
+    if (token) {
+      try {
+        await createFinalSummary(token, summary);
+        window.dispatchEvent(new CustomEvent("cityauncel:coin-updated"));
+      } catch (error) {
+        console.error("儲存探究總結失敗", error);
+        return;
+      }
+    }
+
     onSubmitSummary(summary);
     if (draftStorageKey) removeInquiryDraft(draftStorageKey);
-
-    if (token) {
-      window.setTimeout(() => {
-        void createFinalSummary(token, summary)
-          .then(() => {
-            window.dispatchEvent(new CustomEvent("cityauncel:coin-updated"));
-          })
-          .catch((error) => {
-            // requestJsonWithPending has already queued this write before the network request.
-            // Keep the navigation instant and let the pending-write queue retry later.
-            console.error("背景儲存探究總結失敗，已保留待重試紀錄", error);
-          });
-      }, 0);
-    }
   }, [
     cards,
     allowEmptyEvidenceSummary,

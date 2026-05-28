@@ -50,7 +50,7 @@ async function tableHasIndex(tableName, indexName) {
   return Number(rows[0]?.count || 0) > 0;
 }
 
-async function ensureDataCardSourcesTableUncached(connection = pool) {
+async function ensureDataCardSourcesTable(connection = pool) {
   await connection.query(
     `CREATE TABLE IF NOT EXISTS data_card_sources (
       card_id varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -69,7 +69,7 @@ async function ensureDataCardSourcesTableUncached(connection = pool) {
 }
 
 
-async function ensureMapChoicesTableUncached(connection = pool) {
+async function ensureMapChoicesTable(connection = pool) {
   await connection.query(
     `CREATE TABLE IF NOT EXISTS map_choices (
       id bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -160,7 +160,7 @@ async function ensureMapChoicesTableUncached(connection = pool) {
 }
 
 
-async function ensureInquiryNormalizedTablesUncached(connection = pool) {
+async function ensureInquiryNormalizedTables(connection = pool) {
   await connection.query(
     `CREATE TABLE IF NOT EXISTS inquiry_records (
       id int NOT NULL AUTO_INCREMENT,
@@ -334,45 +334,6 @@ async function ensureLearningDashboardIndexes() {
       if (error?.code !== "ER_DUP_KEYNAME") throw error;
     }
   }
-}
-
-
-const schemaEnsureState = {
-  dataCardSources: { done: false, promise: null },
-  mapChoices: { done: false, promise: null },
-  inquiryNormalized: { done: false, promise: null },
-};
-
-async function runCachedSchemaEnsure(stateKey, runner, connection) {
-  // Requests in production should not re-check information_schema and DDL on every click.
-  // When a transaction-specific connection is supplied, keep the old uncached behavior so
-  // explicit maintenance paths can still run against that connection.
-  if (connection !== pool) return runner(connection);
-
-  const state = schemaEnsureState[stateKey];
-  if (state.done) return;
-  if (!state.promise) {
-    state.promise = runner(pool)
-      .then(() => {
-        state.done = true;
-      })
-      .finally(() => {
-        state.promise = null;
-      });
-  }
-  return state.promise;
-}
-
-async function ensureDataCardSourcesTable(connection = pool) {
-  return runCachedSchemaEnsure("dataCardSources", ensureDataCardSourcesTableUncached, connection);
-}
-
-async function ensureMapChoicesTable(connection = pool) {
-  return runCachedSchemaEnsure("mapChoices", ensureMapChoicesTableUncached, connection);
-}
-
-async function ensureInquiryNormalizedTables(connection = pool) {
-  return runCachedSchemaEnsure("inquiryNormalized", ensureInquiryNormalizedTablesUncached, connection);
 }
 
 module.exports = {
