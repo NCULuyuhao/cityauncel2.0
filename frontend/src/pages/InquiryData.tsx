@@ -1046,22 +1046,23 @@ export default function InquiryData({
       },
     });
 
-    void persistInvestigationCardsNow([], "card_change", [
-      ...collectionReflectionRecords,
-      record,
-    ]).catch((error) => {
-      console.error("同步五張卡蒐集理由失敗", error);
-    });
+    window.setTimeout(() => {
+      void persistInvestigationCardsNow([], "card_change", [
+        ...collectionReflectionRecords,
+        record,
+      ]).catch((error) => {
+        console.error("背景同步五張卡蒐集理由失敗", error);
+      });
+    }, 0);
 
     window.setTimeout(() => {
       if (finishModeAfterReflection === "summary") {
-        void persistCurrentInvestigation()
-          .catch((error) => {
-            console.error("時間到後同步調查紀錄失敗", error);
-          })
-          .finally(() => {
-            goInquiryStage("summary");
+        goInquiryStage("summary");
+        window.setTimeout(() => {
+          void persistCurrentInvestigation().catch((error) => {
+            console.error("五張卡說明後背景同步調查紀錄失敗", error);
           });
+        }, 0);
         return;
       }
 
@@ -1253,13 +1254,12 @@ export default function InquiryData({
       return;
     }
 
-    void persistCurrentInvestigation()
-      .catch((error) => {
-        console.error("時間到後同步調查紀錄失敗", error);
-      })
-      .finally(() => {
-        goInquiryStage("summary");
+    goInquiryStage("summary");
+    window.setTimeout(() => {
+      void persistCurrentInvestigation().catch((error) => {
+        console.error("時間到後背景同步調查紀錄失敗", error);
       });
+    }, 0);
   }, [
     currentRoundCardIds,
     getUnreflectedCollectionCardIds,
@@ -2391,10 +2391,14 @@ export default function InquiryData({
 
                 <Button
                   type="button"
-                  onClick={async () => {
+                  onClick={() => {
                     setShowFinishConfirm(false);
-                    await persistCurrentInvestigation();
                     goInquiryStage("summary");
+                    window.setTimeout(() => {
+                      void persistCurrentInvestigation().catch((error) => {
+                        console.error("確認結束後背景同步調查紀錄失敗", error);
+                      });
+                    }, 0);
                   }}
                   className="rounded-xl border border-[#8f2f2f] bg-[#7f2f2f] px-5 py-3 text-white transition hover:-translate-y-0.5 hover:bg-[#9b3b3b] active:translate-y-0"
                 >
