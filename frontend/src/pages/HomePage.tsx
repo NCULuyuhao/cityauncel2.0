@@ -2751,6 +2751,7 @@ export default function HomePage() {
         <MiaoliMap
           uiStorageKey={`cityauncel_map_ui_${currentUser?.id || "guest"}`}
           onBack={() => goPage("home")}
+          groupId={currentUser?.groupId ?? null}
           groupName={currentUser?.groupName ?? null}
           isGroupLeader={Boolean(currentUser?.isGroupLeader)}
           isTeacher={isTeacher}

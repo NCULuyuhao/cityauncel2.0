@@ -41,7 +41,7 @@ export function InquiryPurposePage({
   const storyParagraphs = currentCase.storyParagraphs;
 
   const handleNext = () => {
-    if (safeOrder === 2) {
+    if (currentCase.id === "lock_suspect") {
       onSelect("task2");
       return;
     }
@@ -149,6 +149,7 @@ export function InquiryFollowUpPage({
   suspectOtherDraft,
   suspectOtherText,
   task3OtherDraft,
+  task3OtherText,
   possibleCrisis,
   otherPurpose,
   onPurposeChange,
@@ -172,6 +173,7 @@ export function InquiryFollowUpPage({
   suspectOtherDraft: string;
   suspectOtherText: string;
   task3OtherDraft: string;
+  task3OtherText: string;
   possibleCrisis: string;
   otherPurpose: string;
   onPurposeChange: (purpose: InquiryPurpose) => void;
@@ -191,9 +193,9 @@ export function InquiryFollowUpPage({
   const currentCase = getInvestigationCaseByOrder(currentInquiryOrder);
   const isTask1 = safeOrder === 1;
   const isTask1Idea = isTask1 && purpose === "task1_yes";
-  const isTask2 = safeOrder === 2;
-  const isTask3 = safeOrder === 3;
-  const isTask3Other = isTask3 && task3Targets.includes("other");
+  const isTask2 = currentCase.id === "lock_suspect";
+  const isTask3 = currentCase.id === "trace_evidence";
+  const isTask3Other = isTask3 && task3Targets.includes("comment");
   const isTask4 = safeOrder === 4;
   const isFreeInquiry = safeOrder > 4;
   const [isEditingSuspectOther, setIsEditingSuspectOther] = useState(false);
@@ -227,7 +229,9 @@ export function InquiryFollowUpPage({
       (selectedSuspects.length === 0 ||
         (isTask2OtherSelected && !hasCustomSuspectOtherText) ||
         (shouldAskSuspectReason && !suspectReasonMeetsMinLength))) ||
-    (isTask3 && task3Targets.length === 0) ||
+    (isTask3 &&
+      (task3Targets.length === 0 ||
+        (task3Targets.includes("comment") && !task3OtherText.trim()))) ||
     (isTask4 && (!purpose || otherPurposeLength < INTRO_TEXT_MIN_LENGTH)) ||
     (isFreeInquiry && otherPurposeLength < INTRO_TEXT_MIN_LENGTH);
 
@@ -505,32 +509,22 @@ export function InquiryFollowUpPage({
         {isTask3 ? (
           <>
             <p className="mb-4 text-xl font-black leading-8 text-stone-800">
-              追查證據任務開始，你想追查的證據是關於？
+              任務即將開始，你有想要先說的想法嗎？
             </p>
-            <p className="mb-4 rounded-2xl border border-stone-200 bg-stone-50 px-5 py-4 text-sm font-semibold leading-7 text-stone-600">
-              你可以專注在一個領域，也可以同時追查危機、兇手，或補充其他想法(可複選)
-            </p>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => onToggleTask3Target("crisis")}
-                className={choiceButtonClass(task3Targets.includes("crisis"))}
+                onClick={() => onToggleTask3Target("comment")}
+                className={choiceButtonClass(task3Targets.includes("comment"))}
               >
-                危機
+                我有話要說
               </button>
               <button
                 type="button"
-                onClick={() => onToggleTask3Target("suspect")}
-                className={choiceButtonClass(task3Targets.includes("suspect"))}
+                onClick={() => onToggleTask3Target("no_idea")}
+                className={choiceButtonClass(task3Targets.includes("no_idea"))}
               >
-                兇手
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggleTask3Target("other")}
-                className={choiceButtonClass(task3Targets.includes("other"))}
-              >
-                其他
+                我沒有想法
               </button>
             </div>
 
@@ -540,24 +534,21 @@ export function InquiryFollowUpPage({
               className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4"
             >
               <h3 className="mb-3 text-lg font-semibold text-emerald-950">
-                請寫下你說的「其他」是什麼
+                請寫下你想說的話
               </h3>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
+              <div className="flex flex-col gap-3">
+                <textarea
                   value={task3OtherDraft}
-                  onChange={(event) =>
-                    onTask3OtherDraftChange(event.target.value)
-                  }
-                  placeholder="例如：我想追查媒體報導、居民說法、保育投入或其他線索..."
-                  className="min-h-12 flex-1 rounded-2xl border border-emerald-200 bg-white px-4 text-base outline-none focus:border-emerald-500"
+                  onChange={(event) => {
+                    onTask3OtherDraftChange(event.target.value);
+                    onTask3OtherTextChange(event.target.value.trim());
+                  }}
+                  placeholder="例如：我想補充目前的想法、懷疑、想追查的方向..."
+                  className="min-h-32 w-full rounded-2xl border border-emerald-200 bg-white p-4 text-base outline-none focus:border-emerald-500"
                 />
-                <button
-                  type="button"
-                  onClick={() => onTask3OtherTextChange(task3OtherDraft.trim())}
-                  className="rounded-2xl border border-emerald-300 bg-white px-5 py-3 text-sm font-black text-emerald-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  送出
-                </button>
+                <p className="text-right text-xs font-black text-emerald-700">
+                  {task3OtherText.trim().length} 字
+                </p>
               </div>
             </InquiryIntroExpandablePanel>
           </>

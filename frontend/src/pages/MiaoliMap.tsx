@@ -4,8 +4,10 @@
  * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { mediaUrl } from "@/api/apiClient";
+import type { GroupKey } from "@/features/cardPack/cardPackModel";
 import { MIAOLI_MAP_VIEW_BOX, labelPositions, regions } from "../data/miaoliMapView";
 
 type RegionState = "保育" | "開發" | "我不知道" | "";
@@ -18,6 +20,7 @@ type MapSyncStatus = {
   text: string;
   updatedAt?: number;
 };
+type MiaoliMapThemeStyle = CSSProperties & Record<`--${string}`, string>;
 
 const PERSONAL_MAP_CHOICE_LIMIT = 9;
 const GROUP_LOCK_FALLBACK_NAMES = [
@@ -28,6 +31,92 @@ const GROUP_LOCK_FALLBACK_NAMES = [
   "☀️科技投資局",
   "🎓公眾教育局",
 ];
+
+const GROUP_MAP_THEMES: Record<GroupKey, MiaoliMapThemeStyle> = {
+  environment: {
+    "--forest": "#35694a",
+    "--forest-deep": "#214831",
+    "--forest-rgb": "53, 105, 74",
+    "--forest-deep-rgb": "33, 72, 49",
+    "--map-theme-soft-rgb": "191, 230, 191",
+    "--map-theme-mid": "#e7ead7",
+    "--map-theme-end": "#bfd5ac",
+    "--map-theme-highlight": "#77b86f",
+    "--map-theme-highlight-rgb": "119, 184, 111",
+  },
+  government: {
+    "--forest": "#0ea5e9",
+    "--forest-deep": "#075985",
+    "--forest-rgb": "14, 165, 233",
+    "--forest-deep-rgb": "7, 89, 133",
+    "--map-theme-soft-rgb": "186, 230, 253",
+    "--map-theme-mid": "#dbeafe",
+    "--map-theme-end": "#bae6fd",
+    "--map-theme-highlight": "#38bdf8",
+    "--map-theme-highlight-rgb": "56, 189, 248",
+  },
+  farming: {
+    "--forest": "#d97706",
+    "--forest-deep": "#92400e",
+    "--forest-rgb": "217, 119, 6",
+    "--forest-deep-rgb": "146, 64, 14",
+    "--map-theme-soft-rgb": "253, 230, 138",
+    "--map-theme-mid": "#fef3c7",
+    "--map-theme-end": "#fed7aa",
+    "--map-theme-highlight": "#f59e0b",
+    "--map-theme-highlight-rgb": "245, 158, 11",
+  },
+  animal: {
+    "--forest": "#8b5cf6",
+    "--forest-deep": "#5b21b6",
+    "--forest-rgb": "139, 92, 246",
+    "--forest-deep-rgb": "91, 33, 182",
+    "--map-theme-soft-rgb": "221, 214, 254",
+    "--map-theme-mid": "#ede9fe",
+    "--map-theme-end": "#f5d0fe",
+    "--map-theme-highlight": "#a78bfa",
+    "--map-theme-highlight-rgb": "167, 139, 250",
+  },
+  greenEnergy: {
+    "--forest": "#14b8a6",
+    "--forest-deep": "#0f766e",
+    "--forest-rgb": "20, 184, 166",
+    "--forest-deep-rgb": "15, 118, 110",
+    "--map-theme-soft-rgb": "153, 246, 228",
+    "--map-theme-mid": "#ccfbf1",
+    "--map-theme-end": "#a7f3d0",
+    "--map-theme-highlight": "#2dd4bf",
+    "--map-theme-highlight-rgb": "45, 212, 191",
+  },
+  education: {
+    "--forest": "#f97316",
+    "--forest-deep": "#9a3412",
+    "--forest-rgb": "249, 115, 22",
+    "--forest-deep-rgb": "154, 52, 18",
+    "--map-theme-soft-rgb": "254, 215, 170",
+    "--map-theme-mid": "#ffedd5",
+    "--map-theme-end": "#fef3c7",
+    "--map-theme-highlight": "#fb923c",
+    "--map-theme-highlight-rgb": "251, 146, 60",
+  },
+};
+
+function resolveMapThemeGroup(
+  groupId?: string | null,
+  groupName?: string | null,
+): GroupKey {
+  if (groupId && groupId in GROUP_MAP_THEMES) return groupId as GroupKey;
+
+  const name = groupName || "";
+  if (name.includes("棲地保育")) return "environment";
+  if (name.includes("土地規劃")) return "government";
+  if (name.includes("農業生計")) return "farming";
+  if (name.includes("犬貓管理")) return "animal";
+  if (name.includes("科技投資")) return "greenEnergy";
+  if (name.includes("公眾教育")) return "education";
+
+  return "environment";
+}
 
 type RegionDecision = {
   result: RegionState;
@@ -140,6 +229,9 @@ type MiaoliMapProps = {
   /** 目前登入者的小組名稱，通常由 /api/my-group 或 /api/me 取得 */
   groupName?: string | null;
 
+  /** 目前登入者的小組代號，用於套用與卡包相同的組別主色。 */
+  groupId?: string | null;
+
   /** 目前登入者是否為小組組長；只有組長可以決定小組平手地區 */
   isGroupLeader?: boolean;
 
@@ -204,7 +296,6 @@ type MiaoliMapProps = {
 type MiaoliMapUiState = {
   activeMode?: MapMode;
   selectedName?: string;
-  isRegionClueModalOpen?: boolean;
 };
 
 function readMiaoliMapUiState(storageKey?: string): MiaoliMapUiState {
@@ -258,6 +349,13 @@ const styles = `
   --active-gold:#f7cf6f;
   --forest:#35694a;
   --forest-deep:#214831;
+  --forest-rgb:53, 105, 74;
+  --forest-deep-rgb:33, 72, 49;
+  --map-theme-soft-rgb:191, 230, 191;
+  --map-theme-mid:#e7ead7;
+  --map-theme-end:#bfd5ac;
+  --map-theme-highlight:#77b86f;
+  --map-theme-highlight-rgb:119, 184, 111;
   --mint:#dff2d4;
   --sun:#f6c95f;
   --coral:#ef9b7a;
@@ -270,9 +368,9 @@ const styles = `
   color:var(--text);
   background:
     radial-gradient(circle at 12% 10%, rgba(255,255,255,.9), transparent 18rem),
-    radial-gradient(circle at 88% 8%, rgba(191,230,191,.42), transparent 18rem),
+    radial-gradient(circle at 88% 8%, rgba(var(--map-theme-soft-rgb),.42), transparent 18rem),
     radial-gradient(circle at 50% 105%, rgba(246,201,95,.24), transparent 28rem),
-    linear-gradient(145deg, #f9f5eb 0%, #e7ead7 48%, #bfd5ac 100%);
+    linear-gradient(145deg, #f9f5eb 0%, var(--map-theme-mid) 48%, var(--map-theme-end) 100%);
   overflow-x:hidden;
   overflow-y:auto;
   position:relative;
@@ -850,7 +948,7 @@ h1 {
   overflow:hidden;
   border:0;
   border-radius:18px;
-  background:linear-gradient(135deg,var(--forest-deep) 0%, var(--forest) 62%, #5a9c62 100%);
+  background:linear-gradient(135deg,var(--forest-deep) 0%, var(--forest) 62%, var(--map-theme-highlight) 100%);
   color:#fffdf8;
   padding:14px 16px;
   font-weight:1000;
@@ -1043,7 +1141,7 @@ h1 {
   color:#fffdf8;
   font-size:20px;
   font-weight:1000;
-  background:linear-gradient(145deg,var(--forest-deep),var(--forest) 58%,#68a46d);
+  background:linear-gradient(145deg,var(--forest-deep),var(--forest) 58%,var(--map-theme-highlight));
   box-shadow:0 14px 24px rgba(42,69,47,.20), 0 0 0 7px rgba(53,105,74,.10);
 }
 .sync-track {
@@ -1058,7 +1156,7 @@ h1 {
   height:100%;
   min-width:10px;
   border-radius:999px;
-  background:linear-gradient(90deg,var(--forest) 0%,#77b86f 42%,var(--sun) 66%,#77b86f 100%);
+  background:linear-gradient(90deg,var(--forest) 0%,var(--map-theme-highlight) 42%,var(--sun) 66%,var(--map-theme-highlight) 100%);
   background-size:190% 100%;
   box-shadow:0 0 18px rgba(53,105,74,.34);
   animation:progress-flow 1.9s linear infinite;
@@ -2124,6 +2222,46 @@ h1 {
   align-items:stretch;
   justify-content:stretch;
 }
+.stage .stage-region-clue-btn {
+  position:absolute;
+  right:18px;
+  top:16px;
+  z-index:6;
+  min-height:42px;
+  border:2px solid rgba(74,46,27,.46);
+  background:linear-gradient(180deg,#fffaf0,#ffe39a 58%,#f1bf4f);
+  color:#4a2e1b;
+  box-shadow:
+    0 7px 0 rgba(74,46,27,.16),
+    0 16px 28px rgba(74,46,27,.16),
+    0 0 0 0 rgba(245,191,79,.52);
+}
+.stage .stage-region-clue-btn:not(:disabled) {
+  animation:region-clue-glow 1.8s ease-in-out infinite;
+}
+.stage .stage-region-clue-btn:not(:disabled):hover {
+  transform:translateY(-1px);
+  box-shadow:
+    0 8px 0 rgba(74,46,27,.18),
+    0 18px 30px rgba(74,46,27,.18),
+    0 0 0 8px rgba(245,191,79,.18);
+}
+@keyframes region-clue-glow {
+  0%, 100% {
+    box-shadow:
+      0 7px 0 rgba(74,46,27,.16),
+      0 16px 28px rgba(74,46,27,.16),
+      0 0 0 0 rgba(245,191,79,.42);
+    filter:brightness(1);
+  }
+  50% {
+    box-shadow:
+      0 7px 0 rgba(74,46,27,.18),
+      0 18px 32px rgba(74,46,27,.20),
+      0 0 0 9px rgba(245,191,79,.18);
+    filter:brightness(1.08);
+  }
+}
 .stage::before,
 .stage::after {
   content:none;
@@ -2170,6 +2308,13 @@ h1 {
   .map-stage-toolbar .region-clue-btn {
     padding:8px 10px;
     font-size:12px;
+  }
+  .stage .stage-region-clue-btn {
+    right:10px;
+    top:10px;
+    min-height:36px;
+    padding:8px 10px;
+    font-size:11px;
   }
 }
 
@@ -2455,7 +2600,7 @@ h1 {
 }
 
 .progress-shell-card .sync-track-fill {
-  background:linear-gradient(90deg, var(--forest) 0%, #77b86f 50%, #9bcf7e 100%);
+  background:linear-gradient(90deg, var(--forest) 0%, var(--map-theme-highlight) 50%, var(--map-theme-end) 100%);
   background-size:190% 100%;
   box-shadow:0 0 18px rgba(53,105,74,.30);
 }
@@ -3300,6 +3445,224 @@ h1 {
   50% { transform:translateY(-1px); }
 }
 
+/* group theme override: map panels follow the player's bureau color, page backdrop stays like HomePage */
+.miaoli-page {
+  --light-page-2:var(--map-theme-mid);
+  --light-page-3:var(--map-theme-end);
+  --light-green:var(--forest);
+  --light-green-2:var(--map-theme-highlight);
+  --light-mint:rgba(var(--map-theme-soft-rgb), .42);
+  --light-mint-2:rgba(var(--map-theme-soft-rgb), .22);
+  --light-line:rgba(var(--forest-rgb), .18);
+  --light-shadow:0 18px 42px rgba(var(--forest-deep-rgb), .12);
+  background:
+    radial-gradient(circle at 14% 14%, rgba(255,255,255,0.78), transparent 16rem),
+    radial-gradient(circle at 88% 12%, rgba(239,214,138,0.30), transparent 17rem),
+    radial-gradient(circle at 52% 105%, rgba(156,175,134,0.30), transparent 30rem),
+    linear-gradient(145deg, #fff3cf 0%, #ead7a7 44%, #b5c99a 100%);
+}
+.miaoli-page::before {
+  background:
+    radial-gradient(circle at 11% 20%, rgba(74,46,27,0.13) 0 5px, transparent 6px),
+    radial-gradient(circle at 16% 23%, rgba(74,46,27,0.09) 0 2px, transparent 3px),
+    radial-gradient(circle at 84% 24%, rgba(74,46,27,0.1) 0 4px, transparent 5px),
+    linear-gradient(100deg, rgba(255,255,255,0.24) 0 1px, transparent 1px 58px);
+}
+.map-panel::before,
+.side::before {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(var(--map-theme-highlight-rgb),.12), transparent 12rem),
+    linear-gradient(90deg, rgba(var(--forest-rgb),.05) 1px, transparent 1px),
+    linear-gradient(rgba(var(--forest-rgb),.035) 1px, transparent 1px);
+}
+.header,
+.mode-switch,
+.map-stage-title,
+.map-stage-toolbar .region-clue-btn,
+.map-toolbar-mode-chip,
+.map-stage-toolbar .map-floating-legend,
+.lock-info,
+.decision-empty-hint,
+.vote-pill,
+.flow-status-card,
+.map-flow-message,
+.map-sync-status,
+.teacher-preview-chip,
+.teacher-preview-banner,
+.lock-checklist {
+  border-color:rgba(var(--forest-rgb), .18);
+}
+h1,
+.card h2,
+.card h3,
+.stat strong,
+.map-stage-title,
+.selected-name,
+.progress-shell-card .sync-title,
+.lock-checklist-title {
+  color:var(--forest-deep);
+}
+.back-btn,
+.chip,
+.group-name,
+.mode-btn,
+.stat,
+.map-stage-title,
+.map-stage-toolbar .region-clue-btn,
+.map-toolbar-mode-chip,
+.map-stage-toolbar .map-floating-legend,
+.lock-info,
+.decision-empty-hint,
+.vote-pill,
+.map-sync-status,
+.teacher-preview-chip,
+.teacher-preview-banner,
+.lock-checklist,
+.progress-shell-card .sync-group-meta span,
+.progress-shell-card .sync-slot,
+.progress-shell-card .sync-slot-mark {
+  background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(var(--map-theme-soft-rgb),.24));
+  color:var(--forest-deep);
+  box-shadow:0 8px 18px rgba(var(--forest-deep-rgb), .08), inset 0 1px 0 rgba(255,255,255,.86);
+}
+.mode-switch {
+  background:rgba(255,255,255,.62);
+}
+.mode-btn.active,
+.stage .stage-region-clue-btn:not(:disabled),
+.progress-shell-card .lock-map-btn,
+.lock-map-btn,
+.progress-shell-card .sync-slot.is-locked .sync-slot-mark,
+.lock-check-item.is-done .lock-check-mark {
+  color:#fffefa;
+  border-color:rgba(var(--forest-rgb), .42);
+  background:linear-gradient(135deg, var(--forest-deep), var(--forest) 64%, var(--map-theme-highlight));
+  box-shadow:0 12px 24px rgba(var(--forest-rgb), .22), 0 0 18px rgba(var(--map-theme-highlight-rgb), .18);
+}
+.stage,
+.card,
+.side .progress-shell-card .sync-collector,
+.progress-shell-card .sync-collector,
+.flow-status-card,
+.map-flow-message.is-success,
+.teacher-preview-banner {
+  background:
+    radial-gradient(circle at 14% 10%, rgba(255,255,255,.96), transparent 9rem),
+    radial-gradient(circle at 92% 12%, rgba(var(--map-theme-soft-rgb),.36), transparent 9rem),
+    linear-gradient(145deg, rgba(255,255,253,.98), rgba(var(--map-theme-soft-rgb),.32));
+  box-shadow:0 14px 30px rgba(var(--forest-deep-rgb), .10), inset 0 1px 0 rgba(255,255,255,.88);
+}
+.progress-shell-card .sync-collector::before {
+  background:
+    linear-gradient(120deg, transparent 0 28%, rgba(255,255,255,.70) 42%, transparent 58% 100%),
+    repeating-linear-gradient(90deg, rgba(var(--forest-rgb),.04) 0 1px, transparent 1px 24px);
+}
+.progress-shell-card .sync-collector.is-complete {
+  border-color:rgba(var(--forest-rgb), .28);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(var(--map-theme-highlight-rgb),.32), transparent 10rem),
+    radial-gradient(circle at 88% 8%, rgba(var(--map-theme-soft-rgb),.32), transparent 9rem),
+    linear-gradient(145deg, rgba(255,255,253,.98), rgba(var(--map-theme-soft-rgb),.38));
+}
+.progress-shell-card .sync-kicker,
+.legend-item,
+.map-floating-legend .legend-item,
+.selected-state,
+.note,
+.progress-shell-card .sync-note,
+.lock-check-item,
+.teacher-preview-icon {
+  color:var(--forest);
+}
+.progress-shell-card .sync-orb {
+  color:var(--forest-deep);
+  background:
+    radial-gradient(circle at 35% 24%, rgba(255,255,255,.95), transparent 38%),
+    linear-gradient(145deg, #ffffff, rgba(var(--map-theme-soft-rgb),.78) 54%, var(--map-theme-highlight));
+  box-shadow:0 12px 24px rgba(var(--forest-deep-rgb),.16), 0 0 0 7px rgba(var(--forest-rgb),.10), 0 0 28px rgba(var(--map-theme-highlight-rgb),.18);
+}
+.progress-shell-card .sync-track {
+  border-color:rgba(var(--forest-rgb), .16);
+  box-shadow:inset 0 2px 6px rgba(var(--forest-deep-rgb),.10), 0 0 0 1px rgba(255,255,255,.62);
+}
+.progress-shell-card .sync-track-fill {
+  isolation:isolate;
+  background:linear-gradient(180deg, rgba(255,255,255,.52), rgba(255,255,255,0) 48%, rgba(255,255,255,.18));
+  box-shadow:0 0 12px rgba(var(--forest-rgb),.34), 0 0 24px rgba(var(--map-theme-highlight-rgb),.20);
+  animation:none;
+}
+.progress-shell-card .sync-track-fill::before {
+  content:"";
+  position:absolute;
+  z-index:0;
+  inset:0 -176px 0 0;
+  pointer-events:none;
+  background:
+    repeating-linear-gradient(90deg,
+      var(--forest) 0px,
+      var(--map-theme-highlight) 44px,
+      var(--map-theme-end) 88px,
+      var(--map-theme-highlight) 132px,
+      var(--forest) 176px);
+  background-size:176px 100%;
+  transform:translate3d(0,0,0);
+  animation:sync-track-endless 5.2s linear infinite;
+  will-change:transform;
+}
+.progress-shell-card .sync-track-fill::after {
+  z-index:1;
+}
+.progress-shell-card .sync-slot.is-locked,
+.progress-shell-card .sync-complete-banner {
+  color:var(--forest-deep);
+  border-color:rgba(var(--forest-rgb), .28);
+  background:linear-gradient(145deg, rgba(var(--map-theme-soft-rgb),.45), rgba(255,255,252,.78));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.90), 0 0 18px rgba(var(--forest-rgb),.13);
+}
+.map-sync-status::before,
+.map-sync-status.is-synced::before {
+  background:var(--forest);
+  box-shadow:0 0 0 4px rgba(var(--forest-rgb),.14), 0 0 12px rgba(var(--forest-rgb),.35);
+}
+.map-flow-message.is-success {
+  color:var(--forest-deep);
+}
+.stage .stage-region-clue-btn:not(:disabled) {
+  animation:region-clue-glow 1.65s ease-in-out infinite;
+}
+/* member/name chips need extra specificity because older roster rules also style them */
+.side .progress-shell-card .sync-group-meta span,
+.side .progress-shell-card .sync-slot,
+.side .progress-shell-card .sync-slots.is-member-roster .sync-slot,
+.side .progress-shell-card .sync-slots.is-member-roster .sync-slot.is-leader,
+.side .progress-shell-card .sync-slots.is-member-roster .sync-slot.is-leader.is-locked {
+  border-color:rgba(var(--forest-rgb), .20);
+  background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(var(--map-theme-soft-rgb),.34));
+  color:var(--forest-deep);
+  box-shadow:0 8px 18px rgba(var(--forest-deep-rgb), .08), inset 0 1px 0 rgba(255,255,255,.86);
+}
+.side .progress-shell-card .sync-slot.is-locked,
+.side .progress-shell-card .sync-slots.is-member-roster .sync-slot.is-locked {
+  border-color:rgba(var(--forest-rgb), .30);
+  background:linear-gradient(145deg, rgba(var(--map-theme-soft-rgb),.46), rgba(255,255,252,.84));
+}
+.side .progress-shell-card .sync-slot-name,
+.side .progress-shell-card .sync-slots.is-member-roster .sync-slot-name,
+.side .progress-shell-card .sync-slot-status,
+.side .progress-shell-card .sync-leader-badge {
+  color:var(--forest-deep);
+}
+.side .progress-shell-card .sync-slot.is-locked .sync-slot-status,
+.side .progress-shell-card .sync-slots.is-member-roster .sync-slot.is-locked .sync-slot-status,
+.side .progress-shell-card .sync-leader-badge {
+  border-color:rgba(var(--forest-rgb), .22);
+  background:rgba(var(--map-theme-soft-rgb), .42);
+  color:var(--forest);
+}
+@keyframes sync-track-endless {
+  from { transform:translate3d(0,0,0); }
+  to { transform:translate3d(-176px,0,0); }
+}
 
 `;
 
@@ -4031,6 +4394,7 @@ export default function MiaoliMap({
   onManualDecisionChange,
   groupMembers = [],
   groupName,
+  groupId,
   isGroupLeader = false,
   isTeacher = false,
   isPersonalMapLocked = false,
@@ -4048,6 +4412,7 @@ export default function MiaoliMap({
   isLockPersonalMapPending = false,
   isLockGroupMapPending = false,
 }: MiaoliMapProps) {
+  const mapThemeStyle = GROUP_MAP_THEMES[resolveMapThemeGroup(groupId, groupName)];
   const initialUiState = readMiaoliMapUiState(uiStorageKey);
   const hasControlledMode =
     mode === "personal" || mode === "group" || mode === "class";
@@ -4064,9 +4429,7 @@ export default function MiaoliMap({
       ? initialUiState.selectedName
       : "",
   );
-  const [isRegionClueModalOpen, setIsRegionClueModalOpen] = useState(
-    Boolean(initialUiState.isRegionClueModalOpen),
-  );
+  const [isRegionClueModalOpen, setIsRegionClueModalOpen] = useState(false);
   const [personalState, setPersonalState] = useState<PersonalDecisionMap>(() =>
     normalizePersonalState(initialState),
   );
@@ -4089,7 +4452,7 @@ export default function MiaoliMap({
     [classFinalChoices],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const styleEl = document.createElement("style");
     styleEl.textContent = styles;
     document.head.appendChild(styleEl);
@@ -4119,9 +4482,8 @@ export default function MiaoliMap({
     saveMiaoliMapUiState(uiStorageKey, {
       activeMode,
       selectedName,
-      isRegionClueModalOpen,
     });
-  }, [activeMode, isRegionClueModalOpen, selectedName, uiStorageKey]);
+  }, [activeMode, selectedName, uiStorageKey]);
 
   useEffect(() => {
     const nextManualState =
@@ -4445,7 +4807,16 @@ export default function MiaoliMap({
     () => getRegionClueGroups(unlockedCards, selectedName),
     [selectedName, unlockedCards],
   );
-  const canOpenRegionClues = activeMode === "personal" && Boolean(selectedName);
+  const shouldShowRegionClueButton = activeMode === "personal";
+  const canOpenRegionClues = shouldShowRegionClueButton && Boolean(selectedName);
+  const hiddenMapFlowMessages = new Set([
+    "個人地圖已鎖定，正在等待小組成員完成。",
+    "小組地圖已鎖定，正在等待其他組長完成。",
+  ]);
+  const visibleMapFlowMessage =
+    mapFlowMessage && hiddenMapFlowMessages.has(mapFlowMessage.text)
+      ? null
+      : mapFlowMessage;
 
   function notifyChange(nextPersonalState: PersonalDecisionMap) {
     onDecisionsChange?.({
@@ -4537,7 +4908,7 @@ export default function MiaoliMap({
   }, []);
 
   return (
-    <div className="miaoli-page game-cute-font">
+    <div className="miaoli-page game-adventure-page uiux-page-shell game-cute-font" style={mapThemeStyle}>
       <div className="wrap">
         <section className="panel map-panel">
           <div className="header">
@@ -4609,24 +4980,25 @@ export default function MiaoliMap({
               </div>
             </div>
             <div className="map-toolbar-action">
-              {activeMode === "personal" ? (
-                <button
-                  className="region-clue-btn"
-                  type="button"
-                  disabled={!selectedName}
-                  onClick={() => {
-                    if (canOpenRegionClues) setIsRegionClueModalOpen(true);
-                  }}
-                >
-                  閱覽地區線索
-                </button>
-              ) : (
+              {activeMode !== "personal" ? (
                 <span className="map-toolbar-mode-chip">{getModeText(activeMode)}{isTeacherPreviewMode ? "｜預覽中" : ""}</span>
-              )}
+              ) : null}
             </div>
           </div>
 
           <div className="stage">
+            {shouldShowRegionClueButton ? (
+              <button
+                className="region-clue-btn stage-region-clue-btn"
+                type="button"
+                disabled={!selectedName}
+                onClick={() => {
+                  if (canOpenRegionClues) setIsRegionClueModalOpen(true);
+                }}
+              >
+                閱覽地區線索
+              </button>
+            ) : null}
             <MapBoard
               activeMode={activeMode}
               visibleState={visibleState}
@@ -4687,7 +5059,7 @@ export default function MiaoliMap({
                     <strong>{counts.locked}</strong>
                   </div>
                   <div className="stat">
-                    <span>平手爭議</span>
+                    <span>爭議地區</span>
                     <strong>{counts.tie}</strong>
                   </div>
                 </>
@@ -4758,7 +5130,7 @@ export default function MiaoliMap({
                   )}
                 </div>
                 {personalCollectorComplete ? (
-                  <div className="sync-complete-banner">進度集滿！正在開啟小組地圖…</div>
+                  <div className="sync-complete-banner">全員完成！正在開啟小組地圖…</div>
                 ) : isPersonalMapLocked ? (
                   <p className="sync-note">你的個人地圖已鎖定，請等待隊友送出。全員集滿後會自動開啟小組地圖。</p>
                 ) : (
@@ -4810,7 +5182,7 @@ export default function MiaoliMap({
                   {groupCollectorComplete ? (
                     <div className="sync-complete-banner">進度集滿！正在開啟全班地圖…</div>
                   ) : (
-                    <p className="sync-note">你的小組地圖已鎖定，正在等待其他組長送出。所有組別集滿後會自動開啟全班地圖。</p>
+                    <p className="sync-note">你的小組地圖已鎖定，正在等待其他局長送出。進度集滿後會自動開啟全班地圖。</p>
                   )}
                 </div>
               ) : (
@@ -4844,7 +5216,7 @@ export default function MiaoliMap({
                     ) : !isGroupLeader ? (
                       <p className="lock-hint">只有組長可以鎖定小組地圖，組員目前可以閱覽結果。</p>
                     ) : (
-                      <p className="lock-hint">所有條件完成後，鎖定會把本組結果送進全班地圖計算。</p>
+                      <p className="lock-hint">所有條件完成後，請按下鎖定小組地圖，等待其他組的完成會開啟全班地圖</p>
                     )}
                   </div>
                 </div>
@@ -4877,15 +5249,15 @@ export default function MiaoliMap({
                   ))}
                 </div>
                 <p className="sync-note">
-                  所有組長都鎖定小組地圖後，才會開放全班地圖；紫色平手地區由教師做最終決定。
+                  紫色爭議地區由教師做最終決定。
                 </p>
               </div>
             )}
           </section>
 
-          {mapFlowMessage ? (
-            <div className={`map-flow-message is-${mapFlowMessage.type}`} role="status">
-              {mapFlowMessage.text}
+          {visibleMapFlowMessage ? (
+            <div className={`map-flow-message is-${visibleMapFlowMessage.type}`} role="status">
+              {visibleMapFlowMessage.text}
             </div>
           ) : null}
 
@@ -4923,11 +5295,11 @@ export default function MiaoliMap({
                         : selectedDecision.isTie
                           ? activeMode === "group"
                             ? isGroupLeader
-                              ? "此區域目前平手，請組長代表小組選擇保育或開發。"
-                              : "此區域目前平手，只有組長可以代表小組做最後選擇。"
+                              ? "此區域目前具有爭議，請組長代表小組選擇保育或開發。"
+                              : "此區域目前具有爭議，只有組長可以代表小組做最後選擇。"
                             : isTeacher
-                              ? "此區域目前平手，請教師帳號選擇保育或開發。"
-                              : "此區域目前平手，學生只能閱覽，請等待教師帳號做最後選擇。"
+                              ? "此區域目前具有爭議，請教師選擇保育或開發。"
+                              : "此區域目前具有爭議，學生只能閱覽，請等待教師做最後選擇。"
                           : "此區域尚未有足夠票數，可等待成員完成選擇。"}
                     </div>
                   </>

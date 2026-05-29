@@ -94,7 +94,7 @@ export function getIntroStageDisplay(
     };
   }
 
-  if (mainChoice.startsWith("任務二：")) {
+  if (mainChoice.includes("鎖定嫌疑犯")) {
     return {
       firstTitle: "1. 任務階段",
       firstAnswer: mainChoice,
@@ -103,12 +103,12 @@ export function getIntroStageDisplay(
     };
   }
 
-  if (mainChoice.startsWith("任務三：")) {
+  if (mainChoice.includes("追查證據")) {
     return {
       firstTitle: "1. 任務階段",
       firstAnswer: mainChoice,
       secondTitle: "2. 我想追查的證據方向是",
-      secondAnswer: firstTextInput || answer,
+      secondAnswer: firstTextInput || selectedOptions.join("、") || answer,
     };
   }
 

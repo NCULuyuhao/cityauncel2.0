@@ -46,7 +46,7 @@ export function readInquiryDataDraft(
         : [],
       task3Targets: Array.isArray(parsed.task3Targets)
         ? (parsed.task3Targets.filter((target) =>
-            ["crisis", "suspect", "other"].includes(String(target)),
+            ["comment", "no_idea", "other"].includes(String(target)),
           ) as string[])
         : [],
       suspectReason: String(parsed.suspectReason ?? ""),

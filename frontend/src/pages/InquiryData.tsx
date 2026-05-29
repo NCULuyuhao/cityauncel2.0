@@ -469,6 +469,7 @@ export default function InquiryData({
     isFinished &&
     unlockedCardsWithContent.length === 0 &&
     confirmedEvidenceCards.length === 0;
+  const hasCurrentRoundUnlockedCards = currentRoundCardIds.length > 0;
 
   const getCollectionReflectionForCard = useCallback(
     (cardId: string) =>
@@ -673,6 +674,7 @@ export default function InquiryData({
   >({
     inquiryPurpose,
     currentInquiryOrder,
+    currentCaseId: currentCase.id,
     currentCaseTitle: currentCase.title,
     suspectGroups: INQUIRY_SUSPECT_GROUPS,
     selectedSuspects,
@@ -1223,6 +1225,8 @@ export default function InquiryData({
   }, [conclusion, noEvidenceSummaryMode]);
 
   const handleRequestFinishInquiry = useCallback(() => {
+    if (!hasCurrentRoundUnlockedCards) return;
+
     const unreflectedIds = getUnreflectedCollectionCardIds(currentRoundCardIds);
     if (unreflectedIds.length > 0) {
       setShowFinishConfirm(false);
@@ -1237,6 +1241,7 @@ export default function InquiryData({
   }, [
     currentRoundCardIds,
     getUnreflectedCollectionCardIds,
+    hasCurrentRoundUnlockedCards,
     openCollectionReflectionPrompt,
     setShowFinishConfirm,
   ]);
@@ -1553,6 +1558,10 @@ export default function InquiryData({
     confirmedEvidenceCards.length === 0 && !noEvidenceSummaryMode;
 
   const introSummary = getIntroStageDisplay(introStage);
+  const currentInquiryPurposeLabel = introSummary.secondTitle
+    .replace(/^\s*\d+\.\s*/, "")
+    .trim();
+  const currentInquiryPurposeText = introSummary.secondAnswer.trim();
 
   function toggleEvidenceCard(cardId: string) {
     onActivityLog?.({
@@ -1661,6 +1670,18 @@ export default function InquiryData({
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   }
 
+  const hasFollowUpAnswers =
+    Boolean(inquiryPurpose) ||
+    selectedSuspects.length > 0 ||
+    task3Targets.length > 0 ||
+    Boolean(suspectReason.trim()) ||
+    Boolean(suspectOtherDraft.trim()) ||
+    Boolean(suspectOtherText.trim()) ||
+    Boolean(task3OtherDraft.trim()) ||
+    Boolean(task3OtherText.trim()) ||
+    Boolean(possibleCrisis.trim()) ||
+    Boolean(otherPurpose.trim());
+
   if (flowStage === "purpose") {
     return (
       <AnimatePresence mode="wait">
@@ -1672,7 +1693,7 @@ export default function InquiryData({
             currentInquiryOrder={currentInquiryOrder}
             onSelect={(purpose) => {
               setInquiryPurpose(purpose);
-              resetFollowUpAnswers();
+              if (!hasFollowUpAnswers) resetFollowUpAnswers();
               goInquiryStage("followUp");
             }}
             onBack={onBackToHome}
@@ -1697,6 +1718,7 @@ export default function InquiryData({
             suspectOtherDraft={suspectOtherDraft}
             suspectOtherText={suspectOtherText}
             task3OtherDraft={task3OtherDraft}
+            task3OtherText={task3OtherText}
             possibleCrisis={possibleCrisis}
             otherPurpose={otherPurpose}
             onPurposeChange={setInquiryPurpose}
@@ -1727,7 +1749,7 @@ export default function InquiryData({
                 return;
               }
 
-              if (safeOrder === 2) {
+              if (currentCase.id === "lock_suspect") {
                 if (
                   selectedSuspects.length === 1 &&
                   selectedSuspects[0] === "unknown"
@@ -1746,7 +1768,7 @@ export default function InquiryData({
                 return;
               }
 
-              if (safeOrder === 3) {
+              if (currentCase.id === "trace_evidence") {
                 finishInquiryIntro("很好，讓我們繼續追查證據吧~");
                 return;
               }
@@ -2419,6 +2441,9 @@ export default function InquiryData({
             totalUnlockedCount={totalUnlockedCount}
             totalCardCount={totalCardCount}
             currentInquiryTitle={currentCase.title}
+            currentInquiryPurposeLabel={currentInquiryPurposeLabel}
+            currentInquiryPurposeText={currentInquiryPurposeText}
+            finishDisabled={!hasCurrentRoundUnlockedCards}
             onRequestFinish={handleRequestFinishInquiry}
           />
         </div>

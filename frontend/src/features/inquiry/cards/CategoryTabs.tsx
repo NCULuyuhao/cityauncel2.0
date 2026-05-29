@@ -18,6 +18,9 @@ export function CategoryTabs({
   totalUnlockedCount,
   totalCardCount,
   currentInquiryTitle,
+  currentInquiryPurposeLabel,
+  currentInquiryPurposeText,
+  finishDisabled = false,
   onRequestFinish,
 }: {
   activeCategory: CategoryKey | null;
@@ -27,6 +30,9 @@ export function CategoryTabs({
   totalUnlockedCount: number;
   totalCardCount: number;
   currentInquiryTitle: string;
+  currentInquiryPurposeLabel?: string;
+  currentInquiryPurposeText?: string;
+  finishDisabled?: boolean;
   onRequestFinish: () => void;
 }) {
   const activeListTheme = activeCategory
@@ -81,12 +87,31 @@ export function CategoryTabs({
             <Button
               type="button"
               onClick={onRequestFinish}
-              className="min-h-[44px] rounded-2xl border border-[#8f2f2f] bg-[#7f2f2f] px-5 py-2.5 font-black text-white transition hover:-translate-y-0.5 hover:bg-[#9b3b3b] active:translate-y-0 lg:order-1"
+              disabled={finishDisabled}
+              className="min-h-[44px] rounded-2xl border border-[#8f2f2f] bg-[#7f2f2f] px-5 py-2.5 font-black text-white transition hover:-translate-y-0.5 hover:bg-[#9b3b3b] active:translate-y-0 disabled:cursor-not-allowed disabled:border-[#b8aa94] disabled:bg-[#d8cbb3] disabled:text-[#7a6754] disabled:opacity-100 lg:order-1"
             >
               提前結束
             </Button>
           </div>
         </div>
+
+        {currentInquiryPurposeText ? (
+          <div className="mt-4 rounded-[24px] border border-[#c8b48f]/80 bg-[#fffaf0]/90 px-4 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] sm:px-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[#9f8768] bg-[#4f3f2c] px-3 py-1 text-xs font-black tracking-[0.14em] text-[#fffaf0]">
+                本回合目的
+              </span>
+              {currentInquiryPurposeLabel ? (
+                <span className="text-xs font-black tracking-[0.08em] text-[#7b5b37]">
+                  {currentInquiryPurposeLabel}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm font-black leading-6 text-[#3f3023] sm:text-base sm:leading-7">
+              {currentInquiryPurposeText}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-3 min-[780px]:grid-cols-3 xl:grid-cols-5">
