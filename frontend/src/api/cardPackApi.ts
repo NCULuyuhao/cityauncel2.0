@@ -76,6 +76,12 @@ export type DecisionCardVote = {
   voteType: DecisionCardVoteType;
   votedAt?: string | null;
 };
+export type DecisionCardVoteCount = {
+  cardId: string;
+  agree: number;
+  reject: number;
+  keep: number;
+};
 export type DecisionCardVoteSubmission = {
   roundNo: number;
   voterGroupId: string;
@@ -130,6 +136,7 @@ export type DecisionCardGameState = {
   roundNo: number;
   proposals: DecisionCardProposal[];
   votes: DecisionCardVote[];
+  voteCounts?: DecisionCardVoteCount[];
   voteSubmissions?: DecisionCardVoteSubmission[];
   myVotes: DecisionCardVote[];
   acceptedCards: DecisionCardAccepted[];
@@ -143,6 +150,13 @@ export function getDecisionCardGameState(token: string) {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   }, 25000);
+}
+
+export function getDecisionCardGameLiveState(token: string) {
+  return requestJson<DecisionCardGameState>("/api/decision-card-game/live", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  }, 12000);
 }
 
 export function saveDecisionCardVotes(

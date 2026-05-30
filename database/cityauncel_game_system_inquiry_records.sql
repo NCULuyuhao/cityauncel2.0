@@ -1,7 +1,3 @@
--- CityAuncel maintainability notes
--- 檔案用途：MySQL schema 腳本 cityauncel_game_system_inquiry_records.sql，定義資料表、索引或資料庫重建流程。
--- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
-
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
 -- Host: localhost    Database: cityauncel_game_system
@@ -42,6 +38,7 @@ CREATE TABLE `inquiry_records` (
   UNIQUE KEY `uk_inquiry_records_user_order` (`user_id`,`record_order`),
   KEY `idx_inquiry_records_user_started` (`user_id`,`started_at`),
   KEY `idx_inquiry_records_user_ended` (`user_id`,`ended_at`),
+  KEY `idx_inquiry_records_dashboard_order` (`user_id`,`record_order`,`id`),
   CONSTRAINT `fk_inquiry_records_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='學生每一份探究調查書主表；不再保存前導/卡片 JSON，只保存順序、時間與最終結論文字。';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -64,4 +61,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-24 20:13:38
+-- Dump completed on 2026-05-31  1:05:09

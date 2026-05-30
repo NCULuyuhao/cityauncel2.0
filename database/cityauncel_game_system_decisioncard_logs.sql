@@ -1,7 +1,3 @@
--- CityAuncel maintainability notes
--- 檔案用途：MySQL schema 腳本 cityauncel_game_system_decisioncard_logs.sql，定義資料表、索引或資料庫重建流程。
--- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
-
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
 -- Host: localhost    Database: cityauncel_game_system
@@ -49,7 +45,7 @@ CREATE TABLE `decisioncard_logs` (
   KEY `idx_decisioncard_logs_card_2` (`selected_card_id_2`),
   KEY `idx_decisioncard_logs_card_3` (`selected_card_id_3`),
   CONSTRAINT `fk_decisioncard_logs_locked_by_user` FOREIGN KEY (`locked_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色卡包提案送出歷程；保留每輪每組送出的三張牌、核心牌、理由、送出者與輪次。';
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色卡包提案送出歷程；保留每輪每組送出的三張牌、核心牌、理由、送出者與輪次。';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -58,6 +54,7 @@ CREATE TABLE `decisioncard_logs` (
 
 LOCK TABLES `decisioncard_logs` WRITE;
 /*!40000 ALTER TABLE `decisioncard_logs` DISABLE KEYS */;
+INSERT INTO `decisioncard_logs` VALUES (1,'environment','lock',1,'environment-pack-2','environment-pack-4','environment-pack-7','environment-pack-2',2,'22222222222222222222222222','2026-05-30 22:46:04','2026-05-30 22:46:04');
 /*!40000 ALTER TABLE `decisioncard_logs` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -70,4 +67,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-24 20:13:39
+-- Dump completed on 2026-05-31  1:05:09

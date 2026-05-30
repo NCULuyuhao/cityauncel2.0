@@ -1,7 +1,3 @@
--- CityAuncel maintainability notes
--- 檔案用途：MySQL schema 腳本 cityauncel_game_system_map_choices.sql，定義資料表、索引或資料庫重建流程。
--- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
-
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
 -- Host: localhost    Database: cityauncel_game_system
@@ -43,7 +39,7 @@ CREATE TABLE `map_choices` (
   KEY `idx_map_choices_district` (`district_name`),
   KEY `idx_map_choices_scope_district` (`scope`,`district_name`),
   CONSTRAINT `fk_map_choices_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地圖目前選擇主表：統一保存個人、小組、全班對每個地區的目前選擇；歷程另存 map_action_logs。';
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地圖目前選擇主表：統一保存個人、小組、全班對每個地區的目前選擇；歷程另存 map_action_logs。';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -52,6 +48,7 @@ CREATE TABLE `map_choices` (
 
 LOCK TABLES `map_choices` WRITE;
 /*!40000 ALTER TABLE `map_choices` DISABLE KEYS */;
+INSERT INTO `map_choices` VALUES (1,'personal','2',2,NULL,'南庄鄉','保育','2026-05-30 16:43:19','2026-05-30 16:43:19'),(2,'personal','2',2,NULL,'造橋鄉','保育','2026-05-30 16:43:21','2026-05-30 16:43:21'),(3,'personal','2',2,NULL,'公館鄉','保育','2026-05-30 16:43:22','2026-05-30 16:43:22'),(4,'personal','2',2,NULL,'後龍鎮','保育','2026-05-30 16:43:23','2026-05-30 16:43:23'),(5,'personal','2',2,NULL,'頭份市','開發','2026-05-30 16:43:25','2026-05-30 16:43:25'),(6,'personal','2',2,NULL,'頭屋鄉','開發','2026-05-30 16:43:26','2026-05-30 16:43:26'),(7,'personal','2',2,NULL,'泰安鄉','開發','2026-05-30 16:43:27','2026-05-30 16:43:27'),(8,'personal','2',2,NULL,'獅潭鄉','開發','2026-05-30 16:43:28','2026-05-30 16:43:28'),(9,'personal','2',2,NULL,'三灣鄉','開發','2026-05-30 16:43:30','2026-05-30 16:43:30'),(10,'personal','2',2,NULL,'苗栗市','保育','2026-05-30 16:43:31','2026-05-30 16:43:31'),(11,'personal','2',2,NULL,'竹南鎮','開發','2026-05-30 16:43:32','2026-05-30 16:43:32'),(12,'personal','2',2,NULL,'通霄鎮','我不知道','2026-05-30 16:43:34','2026-05-30 16:43:34'),(13,'personal','2',2,NULL,'西湖鄉','我不知道','2026-05-30 16:43:35','2026-05-30 16:43:35'),(14,'personal','2',2,NULL,'大湖鄉','我不知道','2026-05-30 16:43:36','2026-05-30 16:43:36'),(15,'personal','2',2,NULL,'銅鑼鄉','開發','2026-05-30 16:43:38','2026-05-30 16:43:38'),(16,'personal','2',2,NULL,'三義鄉','開發','2026-05-30 16:43:39','2026-05-30 16:43:39'),(17,'personal','2',2,NULL,'苑裡鎮','保育','2026-05-30 16:43:40','2026-05-30 16:43:40'),(18,'personal','2',2,NULL,'卓蘭鎮','保育','2026-05-30 16:43:41','2026-05-30 16:43:41');
 /*!40000 ALTER TABLE `map_choices` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -64,4 +61,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-24 20:13:39
+-- Dump completed on 2026-05-31  1:05:08

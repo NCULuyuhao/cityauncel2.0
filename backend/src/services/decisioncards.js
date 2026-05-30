@@ -646,11 +646,19 @@ function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, table
     );
   }
 
-  async function getDecisioncardVotes({ connection = pool, roundNo = null } = {}) {
+  async function getDecisioncardVotes({ connection = pool, roundNo = null, voterGroupId = null } = {}) {
     await ensureDecisioncardsTable();
     const params = [];
-    const where = roundNo ? "WHERE round_no = ?" : "";
-    if (roundNo) params.push(Number(roundNo));
+    const conditions = [];
+    if (roundNo) {
+      conditions.push("round_no = ?");
+      params.push(Number(roundNo));
+    }
+    if (voterGroupId) {
+      conditions.push("voter_group_id = ?");
+      params.push(String(voterGroupId));
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const [rows] = await connection.query(
       `SELECT round_no AS roundNo, proposal_group_id AS proposalGroupId, card_id AS cardId,
               voter_group_id AS voterGroupId, voter_user_id AS voterUserId, vote_type AS voteType,
@@ -667,6 +675,32 @@ function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, table
       voteType: row.voteType,
       votedAt: row.votedAt ? new Date(row.votedAt).toISOString() : null,
     }));
+  }
+
+  async function getDecisioncardVoteCounts({ connection = pool, roundNo = null } = {}) {
+    await ensureDecisioncardsTable();
+    const params = [];
+    const where = roundNo ? "WHERE round_no = ?" : "";
+    if (roundNo) params.push(Number(roundNo));
+    const [rows] = await connection.query(
+      `SELECT card_id AS cardId,
+              SUM(CASE WHEN vote_type = 'agree' THEN 1 ELSE 0 END) AS agree,
+              SUM(CASE WHEN vote_type = 'reject' THEN 1 ELSE 0 END) AS reject
+       FROM decisioncard_votes
+       ${where}
+       GROUP BY card_id`,
+      params
+    );
+    return rows.map((row) => {
+      const agree = Number(row.agree) || 0;
+      const reject = Number(row.reject) || 0;
+      return {
+        cardId: row.cardId,
+        agree,
+        reject,
+        keep: Math.max(0, GROUPS_COUNT - 1 - agree - reject),
+      };
+    });
   }
 
   async function upsertDecisioncardVote({ connection = pool, roundNo, proposalGroupId, cardId, voterGroupId, voterUserId, voteType }) {
@@ -715,8 +749,11 @@ function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, table
       const rejectedCount = groupResults.filter((item) => item.result === "rejected").length;
       const reservedCount = groupResults.filter((item) => item.result === "reserved").length;
       const acceptedScore = acceptedCount > 0 ? acceptedCount * 10 * acceptedCount : 0;
-      // 目前規則改為：小組分數只計算已進入決策區的通過牌；拒絕與保留不算分。
-      const rejectedScore = 0;
+      // 小組分數分開計算：
+      // 1 張通過 +10；2 張通過 (10+10)*2=40；3 張通過 (10+10+10)*3=90。
+      // 1 張拒絕 -5；2 張拒絕 (-5-5)*2=-20；3 張拒絕 (-5-5-5)*3=-45。
+      // 保留牌不加分也不扣分；核心牌只有通過才 +10。
+      const rejectedScore = rejectedCount > 0 ? -5 * rejectedCount * rejectedCount : 0;
       const coreBonus = groupResults.some((item) => item.coreCard && item.result === "accepted") ? 10 : 0;
       scoresByGroup[proposal.groupId] = {
         acceptedCount,
@@ -725,7 +762,7 @@ function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, table
         acceptedScore,
         rejectedScore,
         coreBonus,
-        scoreDelta: acceptedScore + coreBonus,
+        scoreDelta: acceptedScore + rejectedScore + coreBonus,
       };
     }
     return { cardResults, scoresByGroup };
@@ -895,6 +932,7 @@ function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, table
     setCurrentDecisionRound,
     getAcceptedDecisioncards,
     getDecisioncardVotes,
+    getDecisioncardVoteCounts,
     getDecisioncardVoteSubmissions,
     upsertDecisioncardVote,
     upsertDecisioncardVoteSubmission,

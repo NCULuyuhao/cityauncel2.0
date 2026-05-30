@@ -14,7 +14,7 @@ import {
   getCardPackCurrentUser,
   getGroupCardPackLock,
   saveGroupCardPackLock,
-  getDecisionCardGameState,
+  getDecisionCardGameLiveState,
   saveDecisionCardVotes,
 } from "../api/cardPackApi";
 import type { DecisionCardGameState, DecisionCardVoteType } from "../api/cardPackApi";
@@ -300,7 +300,7 @@ export default function CardPackPage({
   async function refreshDecisionGameState() {
     if (!token || isVoteSubmitting) return;
     try {
-      const data = await getDecisionCardGameState(token);
+      const data = await getDecisionCardGameLiveState(token);
       setDecisionGameState(data);
       const roundNo = Number(data.roundNo) || 1;
       const ownVotes: Record<string, DecisionCardVoteType | ""> = {};
@@ -1328,17 +1328,23 @@ export default function CardPackPage({
   }, [boardCardsByGroup, selectedBoardGroupId]);
 
   const publicVoteLiveRows = useMemo(() => {
+    const voteCountMap = new Map(
+      (decisionGameState?.voteCounts || []).map((item) => [String(item.cardId), item]),
+    );
     return boardCards.map(({ proposal, cardId, card }) => {
-      const votes = (decisionGameState?.votes || []).filter(
-        (vote) => String(vote.cardId) === String(cardId) && (Number(vote.roundNo) || 1) === (decisionGameState?.roundNo || 1),
-      );
-      const agree = votes.filter((vote) => vote.voteType === "agree").length;
-      const reject = votes.filter((vote) => vote.voteType === "reject").length;
-      const keep = Math.max(0, GROUP_ORDER.length - 1 - agree - reject);
+      const aggregate = voteCountMap.get(String(cardId));
+      const fallbackVotes = aggregate
+        ? []
+        : (decisionGameState?.votes || []).filter(
+            (vote) => String(vote.cardId) === String(cardId) && (Number(vote.roundNo) || 1) === (decisionGameState?.roundNo || 1),
+          );
+      const agree = aggregate ? Number(aggregate.agree) || 0 : fallbackVotes.filter((vote) => vote.voteType === "agree").length;
+      const reject = aggregate ? Number(aggregate.reject) || 0 : fallbackVotes.filter((vote) => vote.voteType === "reject").length;
+      const keep = aggregate ? Number(aggregate.keep) || 0 : Math.max(0, GROUP_ORDER.length - 1 - agree - reject);
       const result = agree >= 3 ? "目前通過" : reject >= 3 ? "目前反對" : "目前保留";
       return { key: `${proposal.groupId}-${cardId}`, proposal, cardId, card, agree, reject, keep, result };
     });
-  }, [boardCards, decisionGameState?.roundNo, decisionGameState?.votes]);
+  }, [boardCards, decisionGameState?.roundNo, decisionGameState?.voteCounts, decisionGameState?.votes]);
 
   const acceptedDecisionCards = useMemo(() => {
     return (decisionGameState?.acceptedCards || [])
@@ -1448,7 +1454,7 @@ export default function CardPackPage({
       const agreeCount = Object.values(next).filter((value) => value === "agree").length;
       const rejectCount = Object.values(next).filter((value) => value === "reject").length;
       if (agreeCount > 5 || rejectCount > 5) {
-        setMessage("同意票與反對票各最多 5 張。取消其他票後再投。");
+        setMessage("支持票與反對票各最多 5 張。取消其他票後再投。");
         return prev;
       }
       return next;
@@ -2143,7 +2149,7 @@ export default function CardPackPage({
                       </p>
                     </div>
                     <p className="mt-2 text-sm font-bold leading-7 text-[#6b5a44]">
-                      第 {decisionGameState?.roundNo || 1} 輪公告欄。組長可對其他組的牌投 O 同意、X 反對、△ 保留；同意票與反對票各最多 5 張，未投視為 △。
+                      第 {decisionGameState?.roundNo || 1} 輪公告欄。組長可對其他組的牌投 O 支持、X 反對、△ 保留；支持票與反對票各最多 5 張，未投視為 △。
                     </p>
                   </div>
                   <div className="flex flex-col gap-3 sm:items-end">
@@ -2159,7 +2165,7 @@ export default function CardPackPage({
                     ) : null}
                     <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
                       <span className="rounded-[20px] border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 shadow-[0_6px_0_rgba(16,185,129,0.18)]">
-                        O 同意 {Object.values(draftVotes).filter((value) => value === "agree").length}/5
+                        O 支持 {Object.values(draftVotes).filter((value) => value === "agree").length}/5
                       </span>
                       <span className="rounded-[20px] border-2 border-rose-300 bg-gradient-to-br from-rose-50 to-rose-100 px-4 py-2 text-sm font-black text-rose-700 shadow-[0_6px_0_rgba(244,63,94,0.18)]">
                         X 反對 {Object.values(draftVotes).filter((value) => value === "reject").length}/5
@@ -2243,7 +2249,7 @@ export default function CardPackPage({
                                       className={`group relative min-h-[72px] overflow-hidden rounded-[22px] border-2 px-2 py-2 text-center font-black transition active:translate-y-1 ${vote === "agree" ? "border-emerald-600 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-[0_7px_0_rgba(4,120,87,0.42)]" : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-700 shadow-[0_6px_0_rgba(16,185,129,0.16)] hover:-translate-y-0.5 hover:border-emerald-400"}`}
                                     >
                                       <span className="block text-3xl leading-none">O</span>
-                                      <span className="mt-1 block text-xs">同意</span>
+                                      <span className="mt-1 block text-xs">支持</span>
                                     </button>
                                     <button
                                       type="button"
@@ -2327,7 +2333,7 @@ export default function CardPackPage({
 
                                 <div className="grid grid-cols-3 gap-2">
                                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-center">
-                                    <p className="text-[10px] font-black text-emerald-700">O 同意</p>
+                                    <p className="text-[10px] font-black text-emerald-700">O 支持</p>
                                     <p className="mt-0.5 text-xl font-black text-emerald-700">{row.agree}</p>
                                   </div>
                                   <div className="rounded-xl border border-rose-200 bg-rose-50 px-2 py-1.5 text-center">

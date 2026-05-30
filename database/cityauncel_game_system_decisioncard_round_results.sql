@@ -16,34 +16,39 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `inquiry_orientation_responses`
+-- Table structure for table `decisioncard_round_results`
 --
 
-DROP TABLE IF EXISTS `inquiry_orientation_responses`;
+DROP TABLE IF EXISTS `decisioncard_round_results`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `inquiry_orientation_responses` (
+CREATE TABLE `decisioncard_round_results` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `inquiry_record_id` int NOT NULL,
-  `response_order` int NOT NULL,
-  `response_type` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `answer_order` int NOT NULL DEFAULT '1',
-  `answer_text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `round_no` int NOT NULL,
+  `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `core_card` tinyint(1) NOT NULL DEFAULT '0',
+  `agree_count` int NOT NULL DEFAULT '0',
+  `reject_count` int NOT NULL DEFAULT '0',
+  `keep_count` int NOT NULL DEFAULT '0',
+  `result` enum('accepted','rejected','reserved') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'reserved',
+  `reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `settled_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_inquiry_orientation_answer` (`inquiry_record_id`,`response_order`,`answer_order`),
-  KEY `idx_inquiry_orientation_type` (`response_type`),
-  CONSTRAINT `fk_inquiry_orientation_record` FOREIGN KEY (`inquiry_record_id`) REFERENCES `inquiry_records` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='前導任務回答。一個選項或一段文字就是一列，selectedOptions 會拆成多列。';
+  UNIQUE KEY `uniq_decisioncard_round_result` (`round_no`,`card_id`),
+  KEY `idx_decisioncard_round_results_round` (`round_no`),
+  KEY `idx_decisioncard_round_results_group` (`group_id`),
+  KEY `idx_decisioncard_round_results_result` (`result`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每輪公告欄結算後，每張牌的 O/X/△ 票數與通過/拒絕/保留結果。';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `inquiry_orientation_responses`
+-- Dumping data for table `decisioncard_round_results`
 --
 
-LOCK TABLES `inquiry_orientation_responses` WRITE;
-/*!40000 ALTER TABLE `inquiry_orientation_responses` DISABLE KEYS */;
-/*!40000 ALTER TABLE `inquiry_orientation_responses` ENABLE KEYS */;
+LOCK TABLES `decisioncard_round_results` WRITE;
+/*!40000 ALTER TABLE `decisioncard_round_results` DISABLE KEYS */;
+/*!40000 ALTER TABLE `decisioncard_round_results` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -55,4 +60,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-31  1:05:08
+-- Dump completed on 2026-05-31  1:05:10

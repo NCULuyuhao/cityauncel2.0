@@ -1,7 +1,3 @@
--- CityAuncel maintainability notes
--- 檔案用途：MySQL schema 腳本 cityauncel_game_system_decisioncards.sql，定義資料表、索引或資料庫重建流程。
--- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
-
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
 -- Host: localhost    Database: cityauncel_game_system
@@ -29,21 +25,24 @@ DROP TABLE IF EXISTS `decisioncards`;
 CREATE TABLE `decisioncards` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `round_no` int NOT NULL DEFAULT '1',
   `selected_card_id_1` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_2` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_3` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `core_card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `locked_by_user_id` int NOT NULL,
   `lock_reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `locked_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_decisioncards_group_id` (`group_id`),
+  KEY `idx_decisioncards_round` (`round_no`),
   KEY `idx_decisioncards_locked_by_user_id` (`locked_by_user_id`),
   KEY `idx_decisioncards_card_1` (`selected_card_id_1`),
   KEY `idx_decisioncards_card_2` (`selected_card_id_2`),
   KEY `idx_decisioncards_card_3` (`selected_card_id_3`),
   CONSTRAINT `fk_decisioncards_locked_by_user` FOREIGN KEY (`locked_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每組目前鎖定的小組角色卡包決策；因固定只能選三張卡，直接保存三個 card_id，不再另拆明細表。';
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每組目前回合的角色卡包提案；固定三張牌，另記錄核心牌、提案理由與回合。';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -52,6 +51,7 @@ CREATE TABLE `decisioncards` (
 
 LOCK TABLES `decisioncards` WRITE;
 /*!40000 ALTER TABLE `decisioncards` DISABLE KEYS */;
+INSERT INTO `decisioncards` VALUES (1,'environment',1,'environment-pack-2','environment-pack-4','environment-pack-7','environment-pack-2',2,'22222222222222222222222222','2026-05-30 22:46:04','2026-05-30 22:46:04');
 /*!40000 ALTER TABLE `decisioncards` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -64,4 +64,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-24 20:13:38
+-- Dump completed on 2026-05-31  1:05:10

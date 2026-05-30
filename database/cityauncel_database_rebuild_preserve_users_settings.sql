@@ -1,12 +1,82 @@
--- CityAuncel full database rebuild script
--- 用途：完全重建目前系統需要的資料庫、資料表、預設設定與分析 view。
--- 注意：此腳本會刪除整個 cityauncel_game_system 資料庫；不保留任何舊資料。
+-- CityAuncel rebuild script preserving users and game_settings
+-- 用途：重建目前系統需要的資料表與 view，但保留 users 與 game_settings 現有資料。
+-- 注意：其他所有業務資料都會被刪除，適合重新開始一輪課程或測試。
 
 SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
-DROP DATABASE IF EXISTS `cityauncel_game_system`;
-CREATE DATABASE `cityauncel_game_system` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS `cityauncel_game_system` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `cityauncel_game_system`;
+
+DROP TABLE IF EXISTS `__backup_users`;
+DROP TABLE IF EXISTS `__backup_game_settings`;
+
+SET @has_users := (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'users');
+SET @backup_users_sql := IF(@has_users > 0,
+  'CREATE TABLE `__backup_users` AS SELECT * FROM `users`',
+  'CREATE TABLE `__backup_users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password_hash` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` enum(''student'',''teacher'') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT ''student'',
+  `gender` enum(''male'',''female'') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `group_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_group_leader` tinyint NOT NULL DEFAULT ''0'',
+  `barrage_coins` int NOT NULL DEFAULT ''0'',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_backup_users_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+);
+PREPARE stmt FROM @backup_users_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @has_game_settings := (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'game_settings');
+SET @backup_settings_sql := IF(@has_game_settings > 0,
+  'CREATE TABLE `__backup_game_settings` AS SELECT * FROM `game_settings`',
+  'CREATE TABLE `__backup_game_settings` (
+  `setting_key` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `setting_value` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+);
+PREPARE stmt FROM @backup_settings_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET FOREIGN_KEY_CHECKS = 0;
+DROP VIEW IF EXISTS `v_student_progress_summary`;
+DROP VIEW IF EXISTS `v_card_analysis_summary`;
+DROP VIEW IF EXISTS `v_activity_event_summary`;
+DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `game_settings`;
+DROP TABLE IF EXISTS `data_card_sources`;
+DROP TABLE IF EXISTS `inquiry_records`;
+DROP TABLE IF EXISTS `inquiry_orientation_responses`;
+DROP TABLE IF EXISTS `inquiry_record_cards`;
+DROP TABLE IF EXISTS `inquiry_collection_notes`;
+DROP TABLE IF EXISTS `inquiry_collection_note_cards`;
+DROP TABLE IF EXISTS `student_rewards`;
+DROP TABLE IF EXISTS `student_unlocked_cards`;
+DROP TABLE IF EXISTS `student_activity_logs`;
+DROP TABLE IF EXISTS `map_choices`;
+DROP TABLE IF EXISTS `map_locks`;
+DROP TABLE IF EXISTS `map_action_logs`;
+DROP TABLE IF EXISTS `barrages`;
+DROP TABLE IF EXISTS `decisioncards`;
+DROP TABLE IF EXISTS `decisioncard_logs`;
+DROP TABLE IF EXISTS `decisioncard_round_state`;
+DROP TABLE IF EXISTS `decisioncard_votes`;
+DROP TABLE IF EXISTS `decisioncard_vote_records`;
+DROP TABLE IF EXISTS `decisioncard_vote_submissions`;
+DROP TABLE IF EXISTS `decisioncard_round_results`;
+DROP TABLE IF EXISTS `decisioncard_accepted_cards`;
+DROP TABLE IF EXISTS `decisioncard_group_scores`;
+DROP TABLE IF EXISTS `suspect_votes`;
+DROP TABLE IF EXISTS `ai_helper_unlocks`;
+DROP TABLE IF EXISTS `ai_helper_records`;
+DROP TABLE IF EXISTS `ai_helper_record_cards`;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- users
@@ -534,3 +604,28 @@ SELECT
   MAX(created_at) AS latest_event_at
 FROM student_activity_logs
 GROUP BY event_type, target_type;
+
+
+-- Restore preserved users and game_settings.
+INSERT INTO `users` (`id`, `username`, `password_hash`, `role`, `gender`, `group_id`, `is_group_leader`, `barrage_coins`, `created_at`, `updated_at`)
+SELECT `id`, `username`, `password_hash`, `role`, `gender`, `group_id`, `is_group_leader`, `barrage_coins`, `created_at`, `updated_at`
+FROM `__backup_users`
+ON DUPLICATE KEY UPDATE
+  `username` = VALUES(`username`),
+  `password_hash` = VALUES(`password_hash`),
+  `role` = VALUES(`role`),
+  `gender` = VALUES(`gender`),
+  `group_id` = VALUES(`group_id`),
+  `is_group_leader` = VALUES(`is_group_leader`),
+  `barrage_coins` = VALUES(`barrage_coins`),
+  `updated_at` = VALUES(`updated_at`);
+
+INSERT INTO `game_settings` (`setting_key`, `setting_value`, `updated_at`)
+SELECT `setting_key`, `setting_value`, `updated_at`
+FROM `__backup_game_settings`
+ON DUPLICATE KEY UPDATE
+  `setting_value` = VALUES(`setting_value`),
+  `updated_at` = VALUES(`updated_at`);
+
+DROP TABLE IF EXISTS `__backup_users`;
+DROP TABLE IF EXISTS `__backup_game_settings`;

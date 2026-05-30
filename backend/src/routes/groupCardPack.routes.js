@@ -24,6 +24,7 @@ function createGroupCardPackRoutes({
     getCurrentDecisionRound,
     getAcceptedDecisioncards,
     getDecisioncardVotes,
+    getDecisioncardVoteCounts,
     getDecisioncardVoteSubmissions,
     upsertDecisioncardVote,
     upsertDecisioncardVoteSubmission,
@@ -61,28 +62,53 @@ function createGroupCardPackRoutes({
   });
 
 
+  async function buildDecisionCardLivePayload(req) {
+    const user = await getRequestUserProfile(req.user.id);
+    const groupId = user?.group_id || null;
+    await ensureDecisioncardsTable();
+    const roundNo = await getCurrentDecisionRound();
+    const allProposals = await decisioncardService.getAllDecisioncards();
+    const proposals = allProposals.filter((proposal) => (Number(proposal.roundNo) || 1) === roundNo);
+    const [myVotes, voteCounts, voteSubmissions, acceptedCards] = await Promise.all([
+      getDecisioncardVotes({ roundNo, voterGroupId: groupId }),
+      getDecisioncardVoteCounts({ roundNo }),
+      getDecisioncardVoteSubmissions({ roundNo }),
+      getAcceptedDecisioncards(),
+    ]);
+    return {
+      groupId,
+      isGroupLeader: Boolean(user?.is_group_leader),
+      roundNo,
+      proposals,
+      // 學生端輪詢只需要自己的投票與每張牌總票數，不需要下載所有組別的逐票明細。
+      votes: myVotes,
+      voteCounts,
+      voteSubmissions,
+      myVotes,
+      acceptedCards,
+    };
+  }
+
+  router.get("/api/decision-card-game/live", authenticateToken, async (req, res) => {
+    try {
+      return res.json(await buildDecisionCardLivePayload(req));
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: "讀取決策卡即時狀態失敗" });
+    }
+  });
+
   router.get("/api/decision-card-game", authenticateToken, async (req, res) => {
     try {
-      const user = await getRequestUserProfile(req.user.id);
-      const groupId = user?.group_id || null;
-      await ensureDecisioncardsTable();
-      const roundNo = await getCurrentDecisionRound();
-      const proposals = await decisioncardService.getAllDecisioncards();
-      const votes = await getDecisioncardVotes({ roundNo });
-      const voteSubmissions = await getDecisioncardVoteSubmissions({ roundNo });
-      const acceptedCards = await getAcceptedDecisioncards();
+      const livePayload = await buildDecisionCardLivePayload(req);
+      const fullVotes = await getDecisioncardVotes({ roundNo: livePayload.roundNo });
       const roundHistory = await getDecisioncardRoundHistory();
       const groupScores = await getDecisioncardGroupScores();
-      const roundResult = calculateRoundScores(proposals.filter((p) => (Number(p.roundNo) || 1) === roundNo), votes);
+      const roundResult = calculateRoundScores(livePayload.proposals, fullVotes);
       return res.json({
-        groupId,
-        isGroupLeader: Boolean(user?.is_group_leader),
-        roundNo,
-        proposals,
-        votes,
-        voteSubmissions,
-        myVotes: votes.filter((vote) => String(vote.voterGroupId) === String(groupId)),
-        acceptedCards,
+        ...livePayload,
+        votes: fullVotes,
+        myVotes: fullVotes.filter((vote) => String(vote.voterGroupId) === String(livePayload.groupId)),
         roundHistory,
         groupScores,
         roundPreview: roundResult,
@@ -121,7 +147,7 @@ function createGroupCardPackRoutes({
         if ((Number(proposal.roundNo) || 1) !== roundNo) continue;
         if (voteType === "agree") agreeCount += 1;
         if (voteType === "reject") rejectCount += 1;
-        if (agreeCount > 5 || rejectCount > 5) return res.status(400).json({ message: "同意票與反對票各最多 5 張" });
+        if (agreeCount > 5 || rejectCount > 5) return res.status(400).json({ message: "支持票與反對票各最多 5 張" });
         seenCards.add(cardId);
         normalizedVotes.push({ cardId, voteType, proposalGroupId: proposal.groupId });
       }
@@ -176,17 +202,19 @@ function createGroupCardPackRoutes({
 
       // 送出投票後只回傳投票畫面立即需要的資料，避免為了讀取歷史與分數造成 API timeout。
       // 前端會保留原本的公告欄提案資料，並透過較低頻率輪詢補齊其他狀態。
-      const votes = await getDecisioncardVotes({ roundNo });
-      const voteSubmissions = await getDecisioncardVoteSubmissions({ roundNo });
-      const roundPreview = calculateRoundScores(currentRoundProposals, votes);
+      const [myVotes, voteCounts, voteSubmissions] = await Promise.all([
+        getDecisioncardVotes({ roundNo, voterGroupId }),
+        getDecisioncardVoteCounts({ roundNo }),
+        getDecisioncardVoteSubmissions({ roundNo }),
+      ]);
       const payload = {
         message: "投票已送出",
         roundNo,
         proposals: currentRoundProposals,
-        votes,
+        voteCounts,
         voteSubmissions,
-        myVotes: votes.filter((vote) => String(vote.voterGroupId) === String(voterGroupId)),
-        roundPreview,
+        votes: myVotes,
+        myVotes,
       };
       publishRealtimeEvent("decision-card-game", payload);
       return res.json(payload);
@@ -270,7 +298,13 @@ function createGroupCardPackRoutes({
       });
 
       const teacherPayload = await buildTeacherDecisioncardsPayload();
-      const gamePayload = { roundNo, acceptedCards: await getAcceptedDecisioncards(), roundHistory: await getDecisioncardRoundHistory(), groupScores: await getDecisioncardGroupScores(), proposals: await decisioncardService.getAllDecisioncards(), votes: await getDecisioncardVotes({ roundNo }), voteSubmissions: await getDecisioncardVoteSubmissions({ roundNo }) };
+      const [currentProposals, voteCounts, voteSubmissions, acceptedDecisionCards] = await Promise.all([
+        decisioncardService.getAllDecisioncards().then((items) => items.filter((item) => (Number(item.roundNo) || 1) === roundNo)),
+        getDecisioncardVoteCounts({ roundNo }),
+        getDecisioncardVoteSubmissions({ roundNo }),
+        getAcceptedDecisioncards(),
+      ]);
+      const gamePayload = { roundNo, proposals: currentProposals, voteCounts, voteSubmissions, acceptedCards: acceptedDecisionCards };
       const payload = { message: "小組提案已送到公告欄", lock, ...teacherPayload, ...gamePayload };
       publishRealtimeEvent("group-card-pack-lock", { groupId, lock, groups: teacherPayload.groups });
       publishRealtimeEvent("decision-card-game", gamePayload);

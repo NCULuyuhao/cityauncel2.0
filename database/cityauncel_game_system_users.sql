@@ -1,7 +1,3 @@
--- CityAuncel maintainability notes
--- 檔案用途：MySQL schema 腳本 cityauncel_game_system_users.sql，定義資料表、索引或資料庫重建流程。
--- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
-
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
 -- Host: localhost    Database: cityauncel_game_system
@@ -41,7 +37,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `uk_users_username` (`username`),
   KEY `idx_users_role` (`role`),
   KEY `idx_users_group` (`group_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='使用者主表：學生與教師帳號、角色、分組與組長身分。';
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='使用者主表：學生與教師帳號、角色、分組與組長身分。';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -50,6 +46,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
+INSERT INTO `users` VALUES (1,'teacher','$2b$10$/lN.D0EJpcx8xQzFFr9.F.KeQ6WG/7A2c2yydJJ9e4XSMu.yzdKzC','teacher','male',NULL,0,0,'2026-05-30 07:41:00','2026-05-30 07:41:23'),(2,'1','$2b$10$Py7lvWrVz19ubEkd62QiMeBFIVtd4E1PGIljxsePgha7Sbx6PBGMG','student','male','environment',1,0,'2026-05-30 07:41:07','2026-05-30 07:42:07');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -62,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-24 20:13:38
+-- Dump completed on 2026-05-31  1:05:10

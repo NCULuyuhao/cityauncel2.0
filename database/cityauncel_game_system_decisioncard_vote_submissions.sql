@@ -16,34 +16,34 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `inquiry_orientation_responses`
+-- Table structure for table `decisioncard_vote_submissions`
 --
 
-DROP TABLE IF EXISTS `inquiry_orientation_responses`;
+DROP TABLE IF EXISTS `decisioncard_vote_submissions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `inquiry_orientation_responses` (
+CREATE TABLE `decisioncard_vote_submissions` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `inquiry_record_id` int NOT NULL,
-  `response_order` int NOT NULL,
-  `response_type` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `answer_order` int NOT NULL DEFAULT '1',
-  `answer_text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `round_no` int NOT NULL,
+  `voter_group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voter_user_id` int NOT NULL,
+  `submitted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_inquiry_orientation_answer` (`inquiry_record_id`,`response_order`,`answer_order`),
-  KEY `idx_inquiry_orientation_type` (`response_type`),
-  CONSTRAINT `fk_inquiry_orientation_record` FOREIGN KEY (`inquiry_record_id`) REFERENCES `inquiry_records` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='前導任務回答。一個選項或一段文字就是一列，selectedOptions 會拆成多列。';
+  UNIQUE KEY `uniq_decisioncard_vote_submission` (`round_no`,`voter_group_id`),
+  KEY `idx_decisioncard_vote_submissions_round` (`round_no`),
+  KEY `idx_decisioncard_vote_submissions_user` (`voter_user_id`),
+  CONSTRAINT `fk_decisioncard_vote_submissions_user` FOREIGN KEY (`voter_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每輪每組是否按下送出投票，用來判斷已完成/未完成投票。';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `inquiry_orientation_responses`
+-- Dumping data for table `decisioncard_vote_submissions`
 --
 
-LOCK TABLES `inquiry_orientation_responses` WRITE;
-/*!40000 ALTER TABLE `inquiry_orientation_responses` DISABLE KEYS */;
-/*!40000 ALTER TABLE `inquiry_orientation_responses` ENABLE KEYS */;
+LOCK TABLES `decisioncard_vote_submissions` WRITE;
+/*!40000 ALTER TABLE `decisioncard_vote_submissions` DISABLE KEYS */;
+/*!40000 ALTER TABLE `decisioncard_vote_submissions` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -55,4 +55,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-31  1:05:08
+-- Dump completed on 2026-05-31  1:05:07

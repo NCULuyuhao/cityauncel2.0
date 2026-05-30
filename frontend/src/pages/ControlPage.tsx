@@ -272,6 +272,8 @@ export function TeacherManagementCenter({
         votes?: DecisionCardGameState["votes"];
         acceptedCards?: DecisionCardGameState["acceptedCards"];
         roundNo?: number;
+        voteCounts?: DecisionCardGameState["voteCounts"];
+        voteSubmissions?: DecisionCardGameState["voteSubmissions"];
       };
 
       if (event.type === "teacher-controls") {
@@ -379,9 +381,10 @@ export function TeacherManagementCenter({
   async function settleDecisionCardRound() {
     if (!token) return;
     if (!canSettleCurrentDecisionRound) {
-      setCardDecisionMessage(`目前尚不能開始下一輪：${currentRoundProposalGroupCount}/${GROUP_ORDER.length} 局已送出提案，${completedDecisionVoteGroupIds.size}/${GROUP_ORDER.length} 局已完成投票。`);
+      setCardDecisionMessage(`目前尚不能結算本輪並開始下一輪：${currentRoundProposalGroupCount}/${GROUP_ORDER.length} 局已送出提案，${completedDecisionVoteGroupIds.size}/${GROUP_ORDER.length} 局已完成投票。`);
       return;
     }
+    if (!window.confirm("確定要結算本輪嗎？")) return;
     setIsLoadingCardDecisionLocks(true);
     try {
       const data = await settleTeacherDecisionCardRound(token);
@@ -439,16 +442,22 @@ export function TeacherManagementCenter({
 
   const teacherBoardRows = useMemo(() => {
     const roundNo = decisionGameState?.roundNo || 1;
+    const voteCountMap = new Map(
+      (decisionGameState?.voteCounts || []).map((item) => [String(item.cardId), item]),
+    );
     const votes = decisionGameState?.votes || [];
     return (decisionGameState?.proposals || [])
       .filter((proposal) => (Number(proposal.roundNo) || 1) === roundNo)
       .flatMap((proposal) => (proposal.selectedCardIds || []).map((cardId) => {
-        const cardVotes = votes.filter(
-          (vote) => String(vote.cardId) === String(cardId) && (Number(vote.roundNo) || 1) === roundNo,
-        );
-        const agree = cardVotes.filter((vote) => vote.voteType === "agree").length;
-        const reject = cardVotes.filter((vote) => vote.voteType === "reject").length;
-        const keep = Math.max(0, GROUP_ORDER.length - 1 - agree - reject);
+        const aggregate = voteCountMap.get(String(cardId));
+        const cardVotes = aggregate
+          ? []
+          : votes.filter(
+              (vote) => String(vote.cardId) === String(cardId) && (Number(vote.roundNo) || 1) === roundNo,
+            );
+        const agree = aggregate ? Number(aggregate.agree) || 0 : cardVotes.filter((vote) => vote.voteType === "agree").length;
+        const reject = aggregate ? Number(aggregate.reject) || 0 : cardVotes.filter((vote) => vote.voteType === "reject").length;
+        const keep = aggregate ? Number(aggregate.keep) || 0 : Math.max(0, GROUP_ORDER.length - 1 - agree - reject);
         let result = "目前保留";
         if (agree >= 3) result = "目前通過";
         else if (reject >= 3) result = "目前反對";
@@ -476,7 +485,7 @@ export function TeacherManagementCenter({
       }
     });
     return ids;
-  }, [decisionGameState?.roundNo, decisionGameState?.voteSubmissions, decisionGameState?.votes]);
+  }, [decisionGameState?.roundNo, decisionGameState?.voteSubmissions]);
 
   const decisionVotingGroupStatus = useMemo(() => {
     return GROUP_ORDER.map((groupId) => ({
@@ -1172,9 +1181,9 @@ export function TeacherManagementCenter({
                   onClick={() => void settleDecisionCardRound()}
                   disabled={isLoadingCardDecisionLocks || !canSettleCurrentDecisionRound}
                   className={`${GAME_BTN} ${GAME_BTN_AMBER} disabled:cursor-not-allowed disabled:opacity-50`}
-                  title={canSettleCurrentDecisionRound ? "結算本輪並開始下一輪" : `等待提案 ${currentRoundProposalGroupCount}/${GROUP_ORDER.length}、投票 ${completedDecisionVoteGroupIds.size}/${GROUP_ORDER.length}`}
+                  title={canSettleCurrentDecisionRound ? "結算本輪投票，並讓學生進入下一輪選牌" : `等待提案 ${currentRoundProposalGroupCount}/${GROUP_ORDER.length}、投票 ${completedDecisionVoteGroupIds.size}/${GROUP_ORDER.length}`}
                 >
-                  {canSettleCurrentDecisionRound ? "開始下一輪選擇" : `等待完成 ${completedDecisionVoteGroupIds.size}/${GROUP_ORDER.length}`}
+                  {canSettleCurrentDecisionRound ? "結算本輪，開始下一輪" : `等待投票 ${completedDecisionVoteGroupIds.size}/${GROUP_ORDER.length}`}
                 </button>
 
                 {false ? (
@@ -1281,7 +1290,7 @@ export function TeacherManagementCenter({
 
                               <div className="grid grid-cols-3 gap-2">
                                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-center">
-                                  <p className="text-[10px] font-black text-emerald-700">O 同意</p>
+                                  <p className="text-[10px] font-black text-emerald-700">O 支持</p>
                                   <p className="mt-0.5 text-xl font-black text-emerald-700">{row.agree}</p>
                                 </div>
                                 <div className="rounded-xl border border-rose-200 bg-rose-50 px-2 py-1.5 text-center">
@@ -1375,7 +1384,7 @@ export function TeacherManagementCenter({
 
                                   <div className="grid grid-cols-3 gap-2">
                                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-center">
-                                      <p className="text-[10px] font-black text-emerald-700">O 同意</p>
+                                      <p className="text-[10px] font-black text-emerald-700">O 支持</p>
                                       <p className="mt-0.5 text-xl font-black text-emerald-700">{agree}</p>
                                     </div>
                                     <div className="rounded-xl border border-rose-200 bg-rose-50 px-2 py-1.5 text-center">
@@ -1398,7 +1407,7 @@ export function TeacherManagementCenter({
                 </div>
               ) : (
                 <div className="mt-4 rounded-3xl border border-dashed border-[#d8c79f] bg-white/70 px-4 py-6 text-center text-sm font-black text-stone-500">
-                  尚未結算任何輪次，等教師按下「開始下一輪選擇」後會出現歷史紀錄。
+                  尚未結算任何輪次，等教師按下「結算本輪，開始下一輪」後會出現歷史紀錄。
                 </div>
               )}
             </div>

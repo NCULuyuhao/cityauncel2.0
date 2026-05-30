@@ -1,7 +1,3 @@
--- CityAuncel maintainability notes
--- 檔案用途：MySQL schema 腳本 cityauncel_game_system_game_settings.sql，定義資料表、索引或資料庫重建流程。
--- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
-
 -- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
 --
 -- Host: localhost    Database: cityauncel_game_system
@@ -40,7 +36,7 @@ CREATE TABLE `game_settings` (
 
 LOCK TABLES `game_settings` WRITE;
 /*!40000 ALTER TABLE `game_settings` DISABLE KEYS */;
-INSERT INTO `game_settings` VALUES ('card_pack_status','{\"isOpen\":true}','2026-05-24 12:08:09'),('final_decision_settlement','{\"isFinalized\":false}','2026-05-24 12:08:09'),('inquiry_task_status','{\"isOpen\":true}','2026-05-24 12:08:09'),('map_task_status','{\"isOpen\":true}','2026-05-24 12:08:09'),('student_screen_lock','{\"locked\":false,\"isLocked\":false}','2026-05-24 12:08:09'),('suspect_voting_status','{\"isOpen\":false,\"isFinalized\":false,\"finalizedSuspects\":[],\"finalizedAt\":null}','2026-05-24 12:08:09');
+INSERT INTO `game_settings` VALUES ('card_pack_status','{\"isOpen\":true}','2026-05-30 07:36:16'),('final_decision_settlement','{\"isFinalized\":false}','2026-05-30 07:41:41'),('inquiry_task_status','{\"isOpen\":true}','2026-05-30 07:36:16'),('map_task_status','{\"isOpen\":true}','2026-05-30 07:36:16'),('student_screen_lock','{\"locked\":false,\"isLocked\":false}','2026-05-30 07:36:16'),('suspect_voting_status','{\"isOpen\":false,\"isFinalized\":false,\"finalizedSuspects\":[],\"finalizedAt\":null}','2026-05-30 07:41:41');
 /*!40000 ALTER TABLE `game_settings` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -53,4 +49,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-24 20:13:37
+-- Dump completed on 2026-05-31  1:05:08
