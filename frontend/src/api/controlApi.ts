@@ -170,3 +170,10 @@ export function saveTeacherPlayerGroups(token: string, assignments: unknown[]) {
     body: JSON.stringify({ assignments }),
   });
 }
+
+export function settleTeacherDecisionCardRound(token: string) {
+  return requestJson<TeacherActionMessageApi>("/api/teacher/decision-card-round/settle", {
+    method: "POST",
+    headers: authHeaders(token),
+  }, 60000);
+}

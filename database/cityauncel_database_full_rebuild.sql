@@ -1,52 +1,12 @@
--- CityAuncel maintainability notes
--- 檔案用途：MySQL schema 腳本 cityauncel_database_rebuild_clean.sql，定義資料表、索引或資料庫重建流程。
--- 維護重點：修改欄位或索引後，請同步檢查後端 SQL 與教師端分析查詢。
+-- CityAuncel full database rebuild script
+-- 用途：完全重建目前系統需要的資料庫、資料表、預設設定與分析 view。
+-- 注意：此腳本會刪除整個 cityauncel_game_system 資料庫；不保留任何舊資料。
 
--- Clean rebuild SQL for CityAuncel normalized schema
--- Generated from the latest project schema. This file intentionally avoids mysqldump LOCK TABLE wrappers.
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
-CREATE DATABASE IF NOT EXISTS `cityauncel_game_system` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+DROP DATABASE IF EXISTS `cityauncel_game_system`;
+CREATE DATABASE `cityauncel_game_system` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `cityauncel_game_system`;
-
-DROP VIEW IF EXISTS `v_student_progress_summary`;
-DROP VIEW IF EXISTS `v_card_analysis_summary`;
-DROP VIEW IF EXISTS `v_activity_event_summary`;
-
--- Drop legacy tables from earlier schema iterations.
-DROP TABLE IF EXISTS `group_card_pack_lock_events`;
-DROP TABLE IF EXISTS `group_card_pack_lock_logs`;
-DROP TABLE IF EXISTS `group_card_pack_locks`;
-DROP TABLE IF EXISTS `decisioncard_log_cards`;
-DROP TABLE IF EXISTS `decisioncard_cards`;
-DROP TABLE IF EXISTS `map_overrides`;
-DROP TABLE IF EXISTS `map_user_choices`;
-DROP TABLE IF EXISTS `inquiry_evidence_cards`;
-DROP TABLE IF EXISTS `student_coin_balances`;
-DROP TABLE IF EXISTS `ai_argument_workshop_records`;
-
--- Drop current tables from child to parent order.
-DROP TABLE IF EXISTS `ai_helper_record_cards`;
-DROP TABLE IF EXISTS `ai_helper_records`;
-DROP TABLE IF EXISTS `ai_helper_unlocks`;
-DROP TABLE IF EXISTS `decisioncard_logs`;
-DROP TABLE IF EXISTS `decisioncards`;
-DROP TABLE IF EXISTS `barrages`;
-DROP TABLE IF EXISTS `map_action_logs`;
-DROP TABLE IF EXISTS `map_locks`;
-DROP TABLE IF EXISTS `map_choices`;
-DROP TABLE IF EXISTS `student_activity_logs`;
-DROP TABLE IF EXISTS `student_unlocked_cards`;
-DROP TABLE IF EXISTS `student_rewards`;
-DROP TABLE IF EXISTS `inquiry_collection_note_cards`;
-DROP TABLE IF EXISTS `inquiry_collection_notes`;
-DROP TABLE IF EXISTS `inquiry_record_cards`;
-DROP TABLE IF EXISTS `inquiry_orientation_responses`;
-DROP TABLE IF EXISTS `inquiry_records`;
-DROP TABLE IF EXISTS `data_card_sources`;
-DROP TABLE IF EXISTS `suspect_votes`;
-DROP TABLE IF EXISTS `game_settings`;
-DROP TABLE IF EXISTS `users`;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- users
@@ -283,30 +243,35 @@ CREATE TABLE `barrages` (
 CREATE TABLE `decisioncards` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `round_no` int NOT NULL DEFAULT '1',
   `selected_card_id_1` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_2` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_3` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `core_card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `locked_by_user_id` int NOT NULL,
   `lock_reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `locked_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_decisioncards_group_id` (`group_id`),
+  KEY `idx_decisioncards_round` (`round_no`),
   KEY `idx_decisioncards_locked_by_user_id` (`locked_by_user_id`),
   KEY `idx_decisioncards_card_1` (`selected_card_id_1`),
   KEY `idx_decisioncards_card_2` (`selected_card_id_2`),
   KEY `idx_decisioncards_card_3` (`selected_card_id_3`),
   CONSTRAINT `fk_decisioncards_locked_by_user` FOREIGN KEY (`locked_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每組目前鎖定的小組角色卡包決策；因固定只能選三張卡，直接保存三個 card_id，不再另拆明細表。';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每組目前回合的角色卡包提案；固定三張牌，另記錄核心牌、提案理由與回合。';
 
 -- decisioncard_logs
 CREATE TABLE `decisioncard_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `action_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'lock',
+  `round_no` int NOT NULL DEFAULT '1',
   `selected_card_id_1` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_2` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_3` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `core_card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `locked_by_user_id` int DEFAULT NULL,
   `lock_reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `locked_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -315,12 +280,132 @@ CREATE TABLE `decisioncard_logs` (
   KEY `idx_decisioncard_logs_group_id_created_at` (`group_id`,`created_at`),
   KEY `idx_decisioncard_logs_locked_by_user_id` (`locked_by_user_id`),
   KEY `idx_decisioncard_logs_action_type` (`action_type`),
+  KEY `idx_decisioncard_logs_round` (`round_no`),
   KEY `idx_decisioncard_logs_locked_at` (`locked_at`),
   KEY `idx_decisioncard_logs_card_1` (`selected_card_id_1`),
   KEY `idx_decisioncard_logs_card_2` (`selected_card_id_2`),
   KEY `idx_decisioncard_logs_card_3` (`selected_card_id_3`),
   CONSTRAINT `fk_decisioncard_logs_locked_by_user` FOREIGN KEY (`locked_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='小組角色卡包鎖定、重鎖與教師解鎖歷程；每筆歷程直接保存當時三張卡。';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色卡包提案送出歷程；保留每輪每組送出的三張牌、核心牌、理由、送出者與輪次。';
+
+-- decisioncard_round_state
+CREATE TABLE `decisioncard_round_state` (
+  `id` tinyint NOT NULL DEFAULT '1',
+  `current_round_no` int NOT NULL DEFAULT '1',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色卡包目前遊戲回合。';
+INSERT IGNORE INTO `decisioncard_round_state` (`id`, `current_round_no`) VALUES (1, 1);
+
+-- decisioncard_votes
+CREATE TABLE `decisioncard_votes` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `round_no` int NOT NULL,
+  `proposal_group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voter_group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voter_user_id` int NOT NULL,
+  `vote_type` enum('agree','reject') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_decisioncard_vote` (`round_no`,`card_id`,`voter_group_id`),
+  KEY `idx_decisioncard_votes_round_card` (`round_no`,`card_id`),
+  KEY `idx_decisioncard_votes_voter_group` (`voter_group_id`),
+  KEY `idx_decisioncard_votes_user` (`voter_user_id`),
+  CONSTRAINT `fk_decisioncard_votes_user` FOREIGN KEY (`voter_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='組長對公告欄單張牌的明確 O/X 投票；完整 O/X/△ 快照另存 decisioncard_vote_records。';
+
+-- decisioncard_vote_records
+CREATE TABLE `decisioncard_vote_records` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `round_no` int NOT NULL,
+  `proposal_group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voter_group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voter_user_id` int NOT NULL,
+  `vote_type` enum('agree','reject','keep') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'keep',
+  `submitted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_decisioncard_vote_record` (`round_no`,`card_id`,`voter_group_id`),
+  KEY `idx_decisioncard_vote_records_round_card` (`round_no`,`card_id`),
+  KEY `idx_decisioncard_vote_records_voter_group` (`voter_group_id`),
+  KEY `idx_decisioncard_vote_records_proposal_group` (`proposal_group_id`),
+  KEY `idx_decisioncard_vote_records_user` (`voter_user_id`),
+  CONSTRAINT `fk_decisioncard_vote_records_user` FOREIGN KEY (`voter_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每輪每組對每張公告牌的完整投票快照；O=agree、X=reject、△=keep。';
+
+-- decisioncard_vote_submissions
+CREATE TABLE `decisioncard_vote_submissions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `round_no` int NOT NULL,
+  `voter_group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `voter_user_id` int NOT NULL,
+  `submitted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_decisioncard_vote_submission` (`round_no`,`voter_group_id`),
+  KEY `idx_decisioncard_vote_submissions_round` (`round_no`),
+  KEY `idx_decisioncard_vote_submissions_user` (`voter_user_id`),
+  CONSTRAINT `fk_decisioncard_vote_submissions_user` FOREIGN KEY (`voter_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每輪每組是否按下送出投票，用來判斷已完成/未完成投票。';
+
+-- decisioncard_round_results
+CREATE TABLE `decisioncard_round_results` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `round_no` int NOT NULL,
+  `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `core_card` tinyint(1) NOT NULL DEFAULT '0',
+  `agree_count` int NOT NULL DEFAULT '0',
+  `reject_count` int NOT NULL DEFAULT '0',
+  `keep_count` int NOT NULL DEFAULT '0',
+  `result` enum('accepted','rejected','reserved') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'reserved',
+  `reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `settled_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_decisioncard_round_result` (`round_no`,`card_id`),
+  KEY `idx_decisioncard_round_results_round` (`round_no`),
+  KEY `idx_decisioncard_round_results_group` (`group_id`),
+  KEY `idx_decisioncard_round_results_result` (`result`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每輪公告欄結算後，每張牌的 O/X/△ 票數與通過/拒絕/保留結果。';
+
+-- decisioncard_accepted_cards
+CREATE TABLE `decisioncard_accepted_cards` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `round_no` int NOT NULL,
+  `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `core_card` tinyint(1) NOT NULL DEFAULT '0',
+  `agree_count` int NOT NULL DEFAULT '0',
+  `reject_count` int NOT NULL DEFAULT '0',
+  `accepted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_decisioncard_accepted_card` (`card_id`),
+  KEY `idx_decisioncard_accepted_round` (`round_no`),
+  KEY `idx_decisioncard_accepted_group` (`group_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='決策區：所有通過牌。小組分數與遊戲結局分都只計算本表中的牌。';
+
+-- decisioncard_group_scores
+CREATE TABLE `decisioncard_group_scores` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `round_no` int NOT NULL,
+  `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `accepted_count` int NOT NULL DEFAULT '0',
+  `rejected_count` int NOT NULL DEFAULT '0',
+  `reserved_count` int NOT NULL DEFAULT '0',
+  `accepted_score` int NOT NULL DEFAULT '0',
+  `rejected_score` int NOT NULL DEFAULT '0',
+  `core_bonus` int NOT NULL DEFAULT '0',
+  `score_delta` int NOT NULL DEFAULT '0',
+  `cumulative_score` int NOT NULL DEFAULT '0',
+  `settled_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_decisioncard_group_score_round` (`round_no`,`group_id`),
+  KEY `idx_decisioncard_group_scores_group` (`group_id`),
+  KEY `idx_decisioncard_group_scores_round` (`round_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='每輪各組得分與累積分；目前小組分只計算通過牌與核心通過加分，拒絕/保留不計分。';
 
 -- suspect_votes
 CREATE TABLE `suspect_votes` (

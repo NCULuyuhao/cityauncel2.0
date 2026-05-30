@@ -76,23 +76,31 @@ const DECISION_CARD_SCORE_BY_GROUP = {
 const FINAL_OUTCOMES = {
   sustainable: {
     id: "sustainable",
-    title: "永續共榮",
-    subtitle: "人與自然找到新的平衡方式",
-    scoreRange: "-2 ～ +2",
+    title: "共榮",
+    subtitle: "保育與發展形成可以共同前進的局面",
   },
   partial: {
     id: "partial",
     title: "部分共榮",
-    subtitle: "部分地區改善，但互動問題仍未完全解除",
-    scoreRange: "-4 ～ +4（排除 -2 ～ +2）",
+    subtitle: "保育行動明顯領先，部分地區逐漸改善，但仍需要持續協調發展需求",
   },
   crisis: {
     id: "crisis",
-    title: "平衡生存挑戰",
-    subtitle: "決策過度偏向單一利益，淺山系統失去平衡",
-    scoreRange: "低於 -4 或高於 +4",
+    title: "平衡危機",
+    subtitle: "開發行動明顯領先，淺山系統開始面臨新的平衡挑戰",
   },
 };
+
+const CONSERVATION_CAMP_GROUP_IDS = new Set(["environment", "animal", "education"]);
+const DEVELOPMENT_CAMP_GROUP_IDS = new Set(["government", "greenEnergy", "farming"]);
+const FINAL_OUTCOME_POINT_PER_ACCEPTED_CARD = 2;
+const FINAL_OUTCOME_BALANCE_THRESHOLD = 7;
+
+function resolveDecisionCamp(groupId) {
+  if (CONSERVATION_CAMP_GROUP_IDS.has(groupId)) return "conservation";
+  if (DEVELOPMENT_CAMP_GROUP_IDS.has(groupId)) return "development";
+  return "neutral";
+}
 
 function parseDecisionCardInfo(cardId) {
   const match = String(cardId || "").match(/^([a-zA-Z]+)-pack-(\d+)$/);
@@ -104,9 +112,14 @@ function parseDecisionCardInfo(cardId) {
   return { groupId, cardNumber, cardId: String(cardId), ...meta };
 }
 
-function resolveFinalOutcome(totalScore) {
-  if (totalScore >= -2 && totalScore <= 2) return FINAL_OUTCOMES.sustainable;
-  if (totalScore >= -4 && totalScore <= 4) return FINAL_OUTCOMES.partial;
+function resolveFinalOutcomeByCampBalance(conservationScore, developmentScore) {
+  const scoreGap = Number(conservationScore || 0) - Number(developmentScore || 0);
+  if (Math.abs(scoreGap) <= FINAL_OUTCOME_BALANCE_THRESHOLD) {
+    return FINAL_OUTCOMES.sustainable;
+  }
+  if (scoreGap > FINAL_OUTCOME_BALANCE_THRESHOLD) {
+    return FINAL_OUTCOMES.partial;
+  }
   return FINAL_OUTCOMES.crisis;
 }
 
@@ -137,6 +150,7 @@ function createVotingService({
   tableHasColumn,
   ensureDecisioncardsTable,
   getAllDecisioncards,
+  getAcceptedDecisioncards,
 }) {
   async function ensureSuspectVotesTable() {
     const hasLegacyGroupId = await tableHasColumn("suspect_votes", "group_id");
@@ -268,50 +282,83 @@ function createVotingService({
   async function calculateFinalDecisionSettlement(finalizedByUserId = null) {
     await ensureDecisioncardsTable();
 
-    const rows = typeof getAllDecisioncards === "function"
-      ? await getAllDecisioncards()
+    // 最終決策結局分只計算「決策區」中已通過的牌。
+    // 沒有通過牌時，不回頭計算各組目前選的三張牌，避免未通過提案影響結局。
+    const rows = typeof getAcceptedDecisioncards === "function"
+      ? await getAcceptedDecisioncards()
       : [];
 
-    const groups = rows.map((row) => {
-      const selectedCardIds = Array.isArray(row.selectedCardIds) ? row.selectedCardIds : [];
-      const cards = selectedCardIds
-        .map(parseDecisionCardInfo)
-        .filter(Boolean)
-        .map((card) => ({
-          cardId: card.cardId,
-          title: card.title,
-          stance: card.stance,
-          score: card.score,
-        }));
-      const groupScore = cards.reduce((sum, card) => sum + Number(card.score || 0), 0);
+    const groupMap = new Map();
+    const campBreakdown = {
+      conservation: { camp: "conservation", count: 0, score: 0, cards: [] },
+      development: { camp: "development", count: 0, score: 0, cards: [] },
+      neutral: { camp: "neutral", count: 0, score: 0, cards: [] },
+    };
 
-      return {
-        groupId: row.groupId,
-        groupName: mapGroupName(row.groupId),
-        lockedBy: row.lockedBy || null,
-        lockedAt: row.lockedAt || null,
-        reason: row.reason || "",
-        selectedCardIds: selectedCardIds.map(String),
-        cards,
-        score: groupScore,
-      };
-    });
+    for (const row of rows) {
+      const card = parseDecisionCardInfo(row.cardId);
+      if (!card) continue;
 
-    const totalScore = groups.reduce((sum, group) => sum + Number(group.score || 0), 0);
-    const outcome = resolveFinalOutcome(totalScore);
+      // 結局分數只看「牌本身所屬的局」，不看哪一組送出或投票結果細節。
+      const groupId = card.groupId;
+      const camp = resolveDecisionCamp(groupId);
+      const outcomeScore = camp === "neutral" ? 0 : FINAL_OUTCOME_POINT_PER_ACCEPTED_CARD;
+
+      if (!groupMap.has(groupId)) {
+        groupMap.set(groupId, {
+          groupId,
+          groupName: mapGroupName(groupId),
+          selectedCardIds: [],
+          cards: [],
+          score: 0,
+        });
+      }
+
+      const group = groupMap.get(groupId);
+      group.selectedCardIds.push(card.cardId);
+      group.cards.push({
+        cardId: card.cardId,
+        title: card.title,
+        // 保留舊欄位給既有前端型別相容；學生端不顯示這些後台計算欄位。
+        stance: card.stance,
+        score: outcomeScore,
+        roundNo: row.roundNo || 1,
+      });
+      group.score += outcomeScore;
+
+      const bucket = campBreakdown[camp] || campBreakdown.neutral;
+      bucket.count += 1;
+      bucket.score += outcomeScore;
+      bucket.cards.push({
+        groupId,
+        groupName: mapGroupName(groupId),
+        cardId: card.cardId,
+        title: card.title,
+        roundNo: row.roundNo || 1,
+        score: outcomeScore,
+      });
+    }
+
+    const groups = Array.from(groupMap.values());
+    const conservationScore = campBreakdown.conservation.score;
+    const developmentScore = campBreakdown.development.score;
+    const scoreGap = conservationScore - developmentScore;
+    const totalScore = scoreGap;
+    const outcome = resolveFinalOutcomeByCampBalance(conservationScore, developmentScore);
 
     return {
       isFinalized: true,
       finalizedAt: new Date().toISOString(),
       finalizedBy: finalizedByUserId,
+      scoreSource: "accepted_decision_cards_camp_balance_only",
+      totalAcceptedCards: rows.length,
       totalScore,
+      conservationScore,
+      developmentScore,
+      scoreGap,
+      campBreakdown,
       outcome,
       groups,
-      thresholds: [
-        { label: "永續共榮", range: "-2 ～ +2" },
-        { label: "部分共榮", range: "-4 ～ +4，排除 -2 ～ +2" },
-        { label: "平衡生存挑戰", range: "低於 -4 或高於 +4" },
-      ],
     };
   }
 

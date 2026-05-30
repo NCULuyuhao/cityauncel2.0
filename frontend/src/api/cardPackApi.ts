@@ -4,7 +4,7 @@
  * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
  */
 
-import { requestJson } from "./apiClient";
+import { authHeaders, requestJson } from "./apiClient";
 import { requestJsonCacheFirst, writeApiCache } from "./apiResponseCache";
 import { requestJsonWithPending } from "./pendingWriteQueue";
 
@@ -53,7 +53,7 @@ export function getGroupCardPackLock(token: string, options: { cache?: RequestCa
 
 export function saveGroupCardPackLock(
   token: string,
-  payload: { selectedCardIds: string[]; reason: string },
+  payload: { selectedCardIds: string[]; reason: string; coreCardId?: string },
 ) {
   return requestJsonWithPending<GroupCardPackLockResponse>(token, {
     path: "/api/group-card-pack-lock",
@@ -64,4 +64,94 @@ export function saveGroupCardPackLock(
     writeApiCache("/api/group-card-pack-lock", response);
     return response;
   });
+}
+
+export type DecisionCardVoteType = "agree" | "reject";
+export type DecisionCardVote = {
+  roundNo: number;
+  proposalGroupId: string;
+  cardId: string;
+  voterGroupId: string;
+  voterUserId?: number | string;
+  voteType: DecisionCardVoteType;
+  votedAt?: string | null;
+};
+export type DecisionCardVoteSubmission = {
+  roundNo: number;
+  voterGroupId: string;
+  voterUserId?: number | string;
+  submittedAt?: string | null;
+};
+export type DecisionCardAccepted = {
+  roundNo: number;
+  groupId: string;
+  cardId: string;
+  coreCard?: boolean;
+  agreeCount?: number;
+  rejectCount?: number;
+  acceptedAt?: string | null;
+};
+export type DecisionCardRoundHistoryItem = {
+  roundNo: number;
+  groupId: string;
+  cardId: string;
+  coreCard?: boolean;
+  agreeCount?: number;
+  rejectCount?: number;
+  keepCount?: number;
+  result?: "accepted" | "rejected" | "reserved" | string;
+  reason?: string | null;
+  settledAt?: string | null;
+};
+
+export type DecisionCardGroupScore = {
+  roundNo: number;
+  groupId: string;
+  acceptedCount?: number;
+  rejectedCount?: number;
+  reservedCount?: number;
+  acceptedScore?: number;
+  rejectedScore?: number;
+  coreBonus?: number;
+  scoreDelta?: number;
+  cumulativeScore?: number;
+  settledAt?: string | null;
+};
+
+export type DecisionCardProposal = GroupCardPackLock & {
+  roundNo?: number;
+  coreCardId?: string | null;
+  selectedCardIds: string[];
+};
+export type DecisionCardGameState = {
+  message?: string;
+  groupId?: string | null;
+  isGroupLeader?: boolean;
+  roundNo: number;
+  proposals: DecisionCardProposal[];
+  votes: DecisionCardVote[];
+  voteSubmissions?: DecisionCardVoteSubmission[];
+  myVotes: DecisionCardVote[];
+  acceptedCards: DecisionCardAccepted[];
+  roundHistory?: DecisionCardRoundHistoryItem[];
+  groupScores?: DecisionCardGroupScore[];
+  roundPreview?: unknown;
+};
+
+export function getDecisionCardGameState(token: string) {
+  return requestJson<DecisionCardGameState>("/api/decision-card-game", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  }, 25000);
+}
+
+export function saveDecisionCardVotes(
+  token: string,
+  votes: Array<{ cardId: string; voteType: DecisionCardVoteType }>,
+) {
+  return requestJson<DecisionCardGameState>("/api/decision-card-game/votes", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify({ votes }),
+  }, 30000);
 }

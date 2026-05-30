@@ -30,9 +30,11 @@ CREATE TABLE `decisioncard_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `group_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `action_type` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'lock',
+  `round_no` int NOT NULL DEFAULT '1',
   `selected_card_id_1` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_2` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `selected_card_id_3` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `core_card_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `locked_by_user_id` int DEFAULT NULL,
   `lock_reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `locked_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -41,12 +43,13 @@ CREATE TABLE `decisioncard_logs` (
   KEY `idx_decisioncard_logs_group_id_created_at` (`group_id`,`created_at`),
   KEY `idx_decisioncard_logs_locked_by_user_id` (`locked_by_user_id`),
   KEY `idx_decisioncard_logs_action_type` (`action_type`),
+  KEY `idx_decisioncard_logs_round` (`round_no`),
   KEY `idx_decisioncard_logs_locked_at` (`locked_at`),
   KEY `idx_decisioncard_logs_card_1` (`selected_card_id_1`),
   KEY `idx_decisioncard_logs_card_2` (`selected_card_id_2`),
   KEY `idx_decisioncard_logs_card_3` (`selected_card_id_3`),
   CONSTRAINT `fk_decisioncard_logs_locked_by_user` FOREIGN KEY (`locked_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='小組角色卡包鎖定、重鎖與教師解鎖歷程；每筆歷程直接保存當時三張卡。';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色卡包提案送出歷程；保留每輪每組送出的三張牌、核心牌、理由、送出者與輪次。';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

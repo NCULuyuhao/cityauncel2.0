@@ -127,6 +127,7 @@ const votingService = createVotingService({
   tableHasColumn,
   ensureDecisioncardsTable: decisioncardService.ensureDecisioncardsTable,
   getAllDecisioncards: decisioncardService.getAllDecisioncards,
+  getAcceptedDecisioncards: decisioncardService.getAcceptedDecisioncards,
 });
 
 app.get("/", (req, res) => {
@@ -192,6 +193,8 @@ app.use(createTeacherRoutes({
   buildTeacherDecisioncardsPayload: decisioncardService.buildTeacherDecisioncardsPayload,
   getDecisioncardByGroupId: decisioncardService.getDecisioncardByGroupId,
   getAllDecisioncards: decisioncardService.getAllDecisioncards,
+  settleCurrentDecisionRound: decisioncardService.settleCurrentDecisionRound,
+  getAcceptedDecisioncards: decisioncardService.getAcceptedDecisioncards,
 }));
 
 app.use(createAiRoutes({ getActor }));

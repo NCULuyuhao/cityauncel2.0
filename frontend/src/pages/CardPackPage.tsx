@@ -14,7 +14,10 @@ import {
   getCardPackCurrentUser,
   getGroupCardPackLock,
   saveGroupCardPackLock,
+  getDecisionCardGameState,
+  saveDecisionCardVotes,
 } from "../api/cardPackApi";
+import type { DecisionCardGameState, DecisionCardVoteType } from "../api/cardPackApi";
 
 import {
   areSameCardIdSet,
@@ -45,7 +48,6 @@ export default function CardPackPage({
   unlockedCards,
   setUnlockedCards,
   realtimeLockSignal,
-  onBack,
   onActivityLog,
 }: CardPackPageProps) {
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function CardPackPage({
   const meta = GROUP_PACK_META[group];
   const isGroupLeader = Boolean(currentUser.isGroupLeader);
   const cards = useMemo(() => buildPackCards(group), [group]);
-  const initialCardPackUiState = readCardPackUiState(currentUser.id);
+  const initialCardPackUiState = useMemo(() => readCardPackUiState(currentUser.id), [currentUser.id]);
   const initialIsOpened = Boolean(initialCardPackUiState.isOpened);
   const [openProgress, setOpenProgress] = useState(initialIsOpened ? 1 : 0);
   const openProgressFrameRef = useRef<number | null>(null);
@@ -72,6 +74,17 @@ export default function CardPackPage({
       ? initialCardPackUiState.selectedIds.map(String).filter(Boolean)
       : [],
   );
+  const [coreCardId, setCoreCardId] = useState<string>(
+    typeof initialCardPackUiState.coreCardId === "string" ? initialCardPackUiState.coreCardId : "",
+  );
+  const [decisionGameState, setDecisionGameState] = useState<DecisionCardGameState | null>(null);
+  const [draftVotes, setDraftVotes] = useState<Record<string, DecisionCardVoteType | "">>({});
+  const [selectedBoardGroupId, setSelectedBoardGroupId] = useState<GroupKey | null>(null);
+  const [showAcceptedDecisionPanel, setShowAcceptedDecisionPanel] = useState(false);
+  const [isVoteSubmitting, setIsVoteSubmitting] = useState(false);
+  const [submittedVoteRound, setSubmittedVoteRound] = useState<number | null>(null);
+  const draftVotesDirtyRef = useRef(false);
+  const lastDecisionRoundRef = useRef<number | null>(null);
   const [flippedIds, setFlippedIds] = useState<Set<string>>(
     new Set(
       Array.isArray(initialCardPackUiState.flippedIds)
@@ -132,7 +145,6 @@ export default function CardPackPage({
   const syncGroupLockInFlightRef = useRef(false);
   const lockAnimationTimeoutsRef = useRef<number[]>([]);
   const pendingGroupLockIdsRef = useRef<string[] | null>(null);
-  const pendingGroupLockShouldMessageRef = useRef(true);
   const pendingIncomingGroupLockRef = useRef<{
     groupId: GroupKey | null;
     selectedCardIds: string[];
@@ -164,30 +176,52 @@ export default function CardPackPage({
     saveCardPackUiState(currentUser.id, {
       isOpened,
       selectedIds,
+      coreCardId,
       flippedIds: Array.from(flippedIds),
       lockReason,
       wheelRotation,
+      roundNo: decisionGameState?.roundNo || 1,
     });
   }, [
     currentUser.id,
+    coreCardId,
     flippedIds,
     isOpened,
     lockReason,
     selectedIds,
     wheelRotation,
+    decisionGameState?.roundNo,
   ]);
 
-  const selectedCards = cards.filter((card) => selectedIds.includes(card.id));
+  const acceptedOwnCardIds = useMemo(
+    () => new Set((decisionGameState?.acceptedCards || []).filter((card) => card.groupId === group).map((card) => String(card.cardId))),
+    [decisionGameState?.acceptedCards, group],
+  );
+  const availableCards = useMemo(() => cards.filter((card) => !acceptedOwnCardIds.has(card.id)), [cards, acceptedOwnCardIds]);
+  const availableCardCount = Math.max(availableCards.length, 1);
+  const selectedCards = availableCards.filter((card) => selectedIds.includes(card.id));
   const trimmedLockReason = lockReason.trim();
-  const canLock = isGroupLeader && selectedIds.length === 3 && !isLocked && !isLockSubmitting;
-  const canConfirmLock = canLock && trimmedLockReason.length >= 20;
+  const canLock = isGroupLeader && selectedCards.length === 3 && selectedIds.length === 3 && !isLocked && !isLockSubmitting;
+  const canConfirmLock = canLock && trimmedLockReason.length >= 20 && selectedIds.includes(coreCardId);
+
+  useEffect(() => {
+    const availableIdSet = new Set(availableCards.map((card) => card.id));
+    setSelectedIds((prev) => {
+      const next = prev.filter((id) => availableIdSet.has(id));
+      return areSameCardIdSet(prev, next) ? prev : next;
+    });
+    if (coreCardId && !availableIdSet.has(coreCardId)) {
+      setCoreCardId("");
+    }
+  }, [availableCards, coreCardId]);
+
   const wheelMetrics = useMemo(() => {
     const width = Math.max(320, wheelStageSize.width || 320);
     const height = Math.max(360, wheelStageSize.height || 360);
     const shortest = Math.min(width, height);
     const longest = Math.max(width, height);
     const cardWidth = Math.round(
-      Math.max(76, Math.min(150, shortest * 0.22, width * 0.24)),
+      Math.max(104, Math.min(150, shortest * 0.22, width * 0.24)),
     );
     const cardHeight = Math.round((cardWidth * 4) / 3);
     const maxRadiusX = Math.max(86, (width - cardWidth - 24) / 2);
@@ -231,11 +265,14 @@ export default function CardPackPage({
       setWheelStageSize({ width: rect.width, height: rect.height });
     };
 
-    updateSize();
+    const frameId = window.requestAnimationFrame(updateSize);
     const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(stage);
-    return () => resizeObserver.disconnect();
-  }, [isOpened]);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+    };
+  }, [isOpened, decisionGameState?.roundNo, availableCards.length]);
 
   useEffect(() => {
     if (!token) return;
@@ -258,6 +295,65 @@ export default function CardPackPage({
       cancelled = true;
     };
   }, [token]);
+
+
+  async function refreshDecisionGameState() {
+    if (!token || isVoteSubmitting) return;
+    try {
+      const data = await getDecisionCardGameState(token);
+      setDecisionGameState(data);
+      const roundNo = Number(data.roundNo) || 1;
+      const ownVotes: Record<string, DecisionCardVoteType | ""> = {};
+      (data.myVotes || []).forEach((vote) => {
+        ownVotes[String(vote.cardId)] = vote.voteType;
+      });
+      const hasServerSubmission = (data.voteSubmissions || []).some(
+        (submission) =>
+          (Number(submission.roundNo) || 1) === roundNo &&
+          String(submission.voterGroupId) === String(group),
+      );
+
+      // 備援輪詢會定期重抓遊戲狀態，但不能覆蓋組長正在點選中的 O／X／△ 暫存。
+      // 只有尚未開始本地投票、或伺服器已確認本組完成送出時，才同步 myVotes。
+      if (!draftVotesDirtyRef.current || hasServerSubmission || submittedVoteRound === roundNo) {
+        setDraftVotes(ownVotes);
+        if (hasServerSubmission) {
+          draftVotesDirtyRef.current = false;
+          setSubmittedVoteRound(roundNo);
+        }
+      }
+    } catch (error) {
+      console.error("讀取決策卡遊戲狀態失敗：", error);
+    }
+  }
+
+  useEffect(() => {
+    void refreshDecisionGameState();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshDecisionGameState();
+    }, 20000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, group, isVoteSubmitting]);
+
+  useEffect(() => {
+    const roundNo = Number(decisionGameState?.roundNo) || 0;
+    if (!roundNo) return;
+    if (lastDecisionRoundRef.current !== null && lastDecisionRoundRef.current !== roundNo) {
+      setSubmittedVoteRound(null);
+      setDraftVotes({});
+      draftVotesDirtyRef.current = false;
+      setSelectedIds([]);
+      setCoreCardId("");
+      setLockReason("");
+      setIsLocked(false);
+      setHiddenCardIds([]);
+      setDisappearingCardIds([]);
+      setFadingCardIds([]);
+      setMessage(`已進入第 ${roundNo} 輪，請重新選擇本輪三張提案牌。`);
+    }
+    lastDecisionRoundRef.current = roundNo;
+  }, [decisionGameState?.roundNo]);
 
   async function syncGroupLockNow(
     options: {
@@ -440,15 +536,9 @@ export default function CardPackPage({
     });
   }
 
-  function finalizeGroupLock(
-    selectedCardIds: string[],
-    options: { showMessage?: boolean; autoOpenIfLocked?: boolean } = {},
-  ) {
+  function finalizeGroupLock(selectedCardIds: string[]) {
     runLockedCardExitAnimation(selectedCardIds);
     mergeLockedCardsIntoInventory(selectedCardIds);
-    if (options.showMessage !== false) {
-      setMessage("組長已鎖定本組三張卡牌，畫面已同步只保留最終卡牌。");
-    }
   }
 
   function inferGroupFromCardIds(selectedCardIds: string[]): GroupKey | null {
@@ -521,30 +611,19 @@ export default function CardPackPage({
     pendingIncomingGroupLockRef.current = null;
     lastAppliedLockAtRef.current = lockedAt;
     lastAppliedLockSignatureRef.current = lockSignature;
-    applyGroupLock(normalizedIds, {
-      showMessage: shouldShowMessage,
-      autoOpenIfLocked: options.autoOpenIfLocked === true,
-    });
+    applyGroupLock(normalizedIds);
   }
 
-  function applyGroupLock(
-    selectedCardIds: string[],
-    options: { showMessage?: boolean; autoOpenIfLocked?: boolean } = {},
-  ) {
+  function applyGroupLock(selectedCardIds: string[]) {
     const normalizedIds = Array.from(
       new Set(selectedCardIds.map(String)),
     ).filter((id) => cards.some((card) => card.id === id));
     if (normalizedIds.length !== 3) return;
 
-    const shouldShowMessage = options.showMessage !== false;
-
     if (
       isLockedRef.current &&
       areSameCardIdSet(selectedIdsRef.current, normalizedIds)
     ) {
-      if (shouldShowMessage && !message.includes("已同步只保留最終卡牌")) {
-        setMessage("組長已鎖定本組三張卡牌，畫面已同步只保留最終卡牌。");
-      }
       return;
     }
 
@@ -554,22 +633,16 @@ export default function CardPackPage({
       !isGroupLeader &&
       (!isOpenedRef.current ||
         isCuttingPackRef.current ||
-        isLaunchingCardsRef.current)
+      isLaunchingCardsRef.current)
     ) {
       pendingGroupLockIdsRef.current = normalizedIds;
-      pendingGroupLockShouldMessageRef.current = shouldShowMessage;
-      if (shouldShowMessage) {
-        setMessage("組長已鎖定本組三張卡，正在同步開啟並套用最終決策卡。");
-      }
       if (!isOpenedRef.current && !isCuttingPackRef.current && !isLaunchingCardsRef.current) {
         openPack({ silentActivityLog: true, syncLockAfterOpen: true });
       }
       return;
     }
 
-    finalizeGroupLock(normalizedIds, {
-      showMessage: shouldShowMessage,
-    });
+    finalizeGroupLock(normalizedIds);
   }
 
   function updateOpenProgress(
@@ -615,6 +688,7 @@ export default function CardPackPage({
     updateOpenProgress(1, { immediate: true });
     setIsLocked(false);
     setSelectedIds([]);
+    setCoreCardId("");
     setFadingCardIds([]);
     setHiddenCardIds([]);
     setDisappearingCardIds([]);
@@ -624,7 +698,6 @@ export default function CardPackPage({
     setLockReason("");
     setIsLockSubmitting(false);
     pendingGroupLockIdsRef.current = null;
-    pendingGroupLockShouldMessageRef.current = true;
     pendingIncomingGroupLockRef.current = null;
     lastAppliedLockAtRef.current = null;
     lastAppliedLockSignatureRef.current = null;
@@ -698,6 +771,10 @@ export default function CardPackPage({
     if (!token) return;
 
     return subscribeRealtime(token, (event) => {
+      if (event.type === "decision-card-game") {
+        void refreshDecisionGameState();
+        return;
+      }
       if (event.type !== "group-card-pack-lock") return;
       handleRealtimeGroupCardPackEvent(event.payload);
     });
@@ -747,9 +824,7 @@ export default function CardPackPage({
     pendingIncomingGroupLockRef.current = null;
     lastAppliedLockAtRef.current = pendingLock.lockedAt;
     lastAppliedLockSignatureRef.current = pendingLockSignature;
-    applyGroupLock(normalizedIds, {
-      showMessage: pendingLock.showMessage,
-    });
+    applyGroupLock(normalizedIds);
     // 這裡只在小組或卡牌資料切換後補套用暫存鎖定；applyGroupLock 會讀最新狀態，
     // 不應因動畫中的狀態變化反覆觸發。
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -868,12 +943,8 @@ export default function CardPackPage({
             const pendingLockIds = pendingGroupLockIdsRef.current;
             if (pendingLockIds?.length === 3) {
               pendingGroupLockIdsRef.current = null;
-              const shouldShowMessage =
-                pendingGroupLockShouldMessageRef.current;
               window.setTimeout(() => {
-                finalizeGroupLock(pendingLockIds, {
-                  showMessage: shouldShowMessage,
-                });
+                finalizeGroupLock(pendingLockIds);
               }, 120);
               return;
             }
@@ -966,8 +1037,15 @@ export default function CardPackPage({
 
   function toggleCardSelect(cardId: string) {
     if (!isOpened || isLocked || isLockSubmitting) return;
+    if (acceptedOwnCardIds.has(cardId)) {
+      setMessage("這張牌已通過並進入決策區，不能再選。");
+      return;
+    }
     setSelectedIds((prev) => {
-      if (prev.includes(cardId)) return prev.filter((id) => id !== cardId);
+      if (prev.includes(cardId)) {
+        if (coreCardId === cardId) setCoreCardId("");
+        return prev.filter((id) => id !== cardId);
+      }
       if (prev.length >= 3) {
         setMessage("最多只能選擇三張卡牌。再次點擊已選卡可以取消。");
         return prev;
@@ -1064,6 +1142,11 @@ export default function CardPackPage({
     }
     if (!canLock || isLockSubmitting) return;
 
+    if (!selectedIds.includes(coreCardId)) {
+      setMessage("請先從三張牌中標記一張核心牌。");
+      return;
+    }
+
     const reasonForSave = lockReason.trim();
     if (reasonForSave.length < 20) {
       setMessage("鎖定理由至少需要 20 個字。");
@@ -1087,6 +1170,7 @@ export default function CardPackPage({
       const lockData = await saveGroupCardPackLock(token, {
         selectedCardIds: lockedSelectedIds,
         reason: reasonForSave,
+        coreCardId,
       });
       const serverLockedAt = lockData?.lock?.lockedAt
         ? String(lockData.lock.lockedAt)
@@ -1115,10 +1199,7 @@ export default function CardPackPage({
         ];
       })();
 
-      applyGroupLock(lockedSelectedIds, { showMessage: false });
-      setMessage(
-        "已成功鎖定三張卡牌！其餘卡牌正在翻成背面並消失，同組成員也會同步看到效果。",
-      );
+      applyGroupLock(lockedSelectedIds);
       onActivityLog?.({
         eventType: "card_pack_lock",
         eventLabel: "鎖定石虎卡包三張卡牌",
@@ -1152,13 +1233,260 @@ export default function CardPackPage({
     }
   }
 
+
+  const proposalCards = useMemo(() => {
+    const map = new Map<string, { id: string; title: string; frontText: string; groupId: string }>();
+    GROUP_ORDER.forEach((groupId) => {
+      buildPackCards(groupId).forEach((card) => map.set(card.id, { ...card, groupId }));
+    });
+    return map;
+  }, []);
+
+  const currentRoundProposals = useMemo(
+    () => (decisionGameState?.proposals || []).filter((proposal) => (Number(proposal.roundNo) || 1) === (decisionGameState?.roundNo || 1)),
+    [decisionGameState?.proposals, decisionGameState?.roundNo],
+  );
+
+  const hasOwnCurrentRoundProposal = currentRoundProposals.some(
+    (proposal) => String(proposal.groupId) === String(group),
+  );
+  const showDecisionBoard = hasOwnCurrentRoundProposal || isLocked;
+
+  useEffect(() => {
+    const roundNo = Number(decisionGameState?.roundNo) || 0;
+    if (!roundNo || hasOwnCurrentRoundProposal) return;
+    const storedRoundNo = Number(initialCardPackUiState.roundNo) || 0;
+    if (storedRoundNo && storedRoundNo === roundNo) return;
+
+    // 舊版 localStorage 沒有 roundNo，或上一輪留下的選牌暫存，會造成下一輪明明只點 1 張卻顯示已選 3 張。
+    // 當本組本輪尚未送出提案時，先清掉跨輪殘留的選取狀態。
+    setSelectedIds([]);
+    setCoreCardId("");
+    setLockReason("");
+  }, [decisionGameState?.roundNo, hasOwnCurrentRoundProposal, initialCardPackUiState.roundNo]);
+
+  const completedVoteGroupIds = useMemo(() => {
+    const ids = new Set<string>();
+    (decisionGameState?.voteSubmissions || []).forEach((submission) => {
+      if ((Number(submission.roundNo) || 1) === (decisionGameState?.roundNo || 1)) {
+        ids.add(String(submission.voterGroupId));
+      }
+    });
+    return ids;
+  }, [decisionGameState?.roundNo, decisionGameState?.voteSubmissions, decisionGameState?.votes]);
+  const hasSubmittedCurrentRoundVote =
+    submittedVoteRound === (decisionGameState?.roundNo || 1) || completedVoteGroupIds.has(String(group));
+
+  const votingGroupStatus = useMemo(() => {
+    return GROUP_ORDER.map((groupId) => ({
+      groupId,
+      completed: completedVoteGroupIds.has(String(groupId)),
+      meta: GROUP_PACK_META[resolveGroup(groupId)],
+    }));
+  }, [completedVoteGroupIds]);
+
+  const boardCards = useMemo(
+    () => currentRoundProposals.flatMap((proposal) =>
+      (proposal.selectedCardIds || []).map((cardId) => ({
+        proposal,
+        cardId: String(cardId),
+        card: proposalCards.get(String(cardId)),
+      })),
+    ),
+    [currentRoundProposals, proposalCards],
+  );
+
+  const boardCardsByGroup = useMemo(() => {
+    const map = new Map<string, typeof boardCards>();
+    GROUP_ORDER.forEach((groupId) => map.set(groupId, []));
+    boardCards.forEach((item) => {
+      const groupId = resolveGroup(String(item.proposal.groupId || item.card?.groupId || ""));
+      const list = map.get(groupId) || [];
+      list.push(item);
+      map.set(groupId, list);
+    });
+    return map;
+  }, [boardCards]);
+
+  const boardGroupSummaries = useMemo(() => {
+    return GROUP_ORDER.map((groupId) => ({
+      groupId,
+      meta: GROUP_PACK_META[groupId],
+      cards: boardCardsByGroup.get(groupId) || [],
+    }));
+  }, [boardCardsByGroup]);
+
+  const submittedProposalGroupCount = boardGroupSummaries.filter((item) => item.cards.length > 0).length;
+  const allGroupsSubmittedProposals = submittedProposalGroupCount >= GROUP_ORDER.length;
+
+  const selectedBoardGroupCards = selectedBoardGroupId ? boardCardsByGroup.get(selectedBoardGroupId) || [] : [];
+
+  useEffect(() => {
+    if (selectedBoardGroupId && !(boardCardsByGroup.get(selectedBoardGroupId) || []).length) {
+      setSelectedBoardGroupId(null);
+    }
+  }, [boardCardsByGroup, selectedBoardGroupId]);
+
+  const publicVoteLiveRows = useMemo(() => {
+    return boardCards.map(({ proposal, cardId, card }) => {
+      const votes = (decisionGameState?.votes || []).filter(
+        (vote) => String(vote.cardId) === String(cardId) && (Number(vote.roundNo) || 1) === (decisionGameState?.roundNo || 1),
+      );
+      const agree = votes.filter((vote) => vote.voteType === "agree").length;
+      const reject = votes.filter((vote) => vote.voteType === "reject").length;
+      const keep = Math.max(0, GROUP_ORDER.length - 1 - agree - reject);
+      const result = agree >= 3 ? "目前通過" : reject >= 3 ? "目前反對" : "目前保留";
+      return { key: `${proposal.groupId}-${cardId}`, proposal, cardId, card, agree, reject, keep, result };
+    });
+  }, [boardCards, decisionGameState?.roundNo, decisionGameState?.votes]);
+
+  const acceptedDecisionCards = useMemo(() => {
+    return (decisionGameState?.acceptedCards || [])
+      .map((accepted, index) => {
+        const cardId = String(accepted.cardId || "");
+        const card = proposalCards.get(cardId);
+        const groupId = resolveGroup(String(accepted.groupId || card?.groupId || group));
+        return {
+          ...accepted,
+          key: `${accepted.roundNo || 0}-${groupId}-${cardId}-${index}`,
+          cardId,
+          card,
+          groupId,
+          roundNo: Number(accepted.roundNo) || 1,
+        };
+      })
+      .sort((a, b) => a.roundNo - b.roundNo || GROUP_ORDER.indexOf(a.groupId) - GROUP_ORDER.indexOf(b.groupId));
+  }, [decisionGameState?.acceptedCards, group, proposalCards]);
+
+  function formatBoardCardTitle(title?: string | null, fallback?: string) {
+    return (title || fallback || "").replace(/卡包/g, "").trim();
+  }
+
+  function getLiveResultSymbol(result?: string | null) {
+    if (String(result || "").includes("通過")) return "O";
+    if (String(result || "").includes("反對")) return "X";
+    return "△";
+  }
+
+  function getLiveResultSymbolClass(result?: string | null) {
+    if (String(result || "").includes("通過")) return "border-emerald-300 bg-emerald-100 text-emerald-800 shadow-[0_0_22px_rgba(16,185,129,0.28)]";
+    if (String(result || "").includes("反對")) return "border-rose-300 bg-rose-100 text-rose-800 shadow-[0_0_22px_rgba(244,63,94,0.24)]";
+    return "border-stone-300 bg-stone-100 text-stone-700 shadow-[0_0_18px_rgba(120,113,108,0.18)]";
+  }
+
+  function renderBoardCard(
+    cardId: string,
+    card: { id?: string; title?: string; frontText?: string; groupId?: string } | undefined,
+    options: { groupId?: string | null; compact?: boolean; badge?: React.ReactNode; backText?: string | null } = {},
+  ) {
+    const cardGroup = resolveGroup(String(options.groupId || card?.groupId || group));
+    const cardMeta = GROUP_PACK_META[cardGroup];
+    const flipKey = `board-${cardId}-${options.groupId || cardGroup}`;
+    const canFlip = Boolean(options.backText);
+    const flipped = canFlip && flippedIds.has(flipKey);
+    const displayTitle = formatBoardCardTitle(card?.title, cardId);
+
+    const cardFace = (
+      <div className={`absolute inset-0 overflow-hidden rounded-[24px] border border-white/60 bg-gradient-to-br ${cardMeta.cardFace} p-[clamp(5px,1.5vmin,10px)] ${cardMeta.cardText} shadow-[0_18px_42px_rgba(0,0,0,0.18),inset_0_0_24px_rgba(255,255,255,0.32)]`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(255,255,255,0.72),transparent_22%),radial-gradient(circle_at_82%_86%,rgba(255,255,255,0.34),transparent_26%)]" />
+        {options.badge ? <div className="absolute right-2 top-2 z-20">{options.badge}</div> : null}
+        <div className="relative z-10 flex h-full min-h-0 flex-col">
+          <div className="mb-2 flex h-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/62 px-2 shadow-sm">
+            <p className={`w-full truncate text-center text-[0.66rem] font-black tracking-[0.08em] ${cardMeta.cardMutedText}`}>
+              {displayTitle}
+            </p>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[18px] bg-white/62 px-2 py-2 text-center shadow-sm">
+            <p className={`${options.compact ? "text-[0.72rem]" : "text-[0.8rem]"} max-h-full overflow-hidden break-words text-center font-black leading-[1.22] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:8]`}>
+              {card?.frontText || cardId}
+            </p>
+          </div>
+          {canFlip ? <p className="mt-1 text-center text-[10px] font-black opacity-70">點擊翻面看理由</p> : null}
+        </div>
+      </div>
+    );
+
+    const cardBack = (
+      <div className={`absolute inset-0 overflow-hidden rounded-[24px] border border-white/70 bg-gradient-to-br ${cardMeta.cardFace} p-[clamp(5px,1.5vmin,10px)] ${cardMeta.cardText} shadow-[0_18px_42px_rgba(0,0,0,0.18),inset_0_0_24px_rgba(255,255,255,0.32)]`}>
+        <div className="relative z-10 flex h-full flex-col rounded-[18px] bg-white/72 px-3 py-3 text-center shadow-sm">
+          <p className="text-[11px] font-black tracking-[0.12em] opacity-70">提案理由</p>
+          <p className={`${options.compact ? "text-[0.66rem]" : "text-[0.76rem]"} mt-2 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words text-left font-black leading-[1.45]`}>
+            {options.backText || "尚未填寫理由"}
+          </p>
+          <p className="mt-2 shrink-0 text-center text-[10px] font-black opacity-70">點擊回到牌面</p>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className={`${options.compact ? "w-full max-w-[150px]" : "w-full max-w-[180px]"}`}>
+        <button
+          type="button"
+          onClick={() => {
+            if (!canFlip) return;
+            setFlippedIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(flipKey)) next.delete(flipKey);
+              else next.add(flipKey);
+              return next;
+            });
+          }}
+          className={`relative block aspect-[3/4] w-full text-left ${canFlip ? "cursor-pointer" : "cursor-default"}`}
+        >
+          {flipped ? cardBack : cardFace}
+        </button>
+      </div>
+    );
+  }
+
+  function setVote(cardId: string, voteType: DecisionCardVoteType | "") {
+    draftVotesDirtyRef.current = true;
+    setDraftVotes((prev) => {
+      const next = { ...prev };
+      if (!voteType) delete next[cardId];
+      else next[cardId] = voteType;
+      const agreeCount = Object.values(next).filter((value) => value === "agree").length;
+      const rejectCount = Object.values(next).filter((value) => value === "reject").length;
+      if (agreeCount > 5 || rejectCount > 5) {
+        setMessage("同意票與反對票各最多 5 張。取消其他票後再投。");
+        return prev;
+      }
+      return next;
+    });
+  }
+
+  async function submitVotes() {
+    if (!token || !isGroupLeader || isVoteSubmitting || !allGroupsSubmittedProposals) return;
+    setIsVoteSubmitting(true);
+    try {
+      const votes = Object.entries(draftVotes)
+        .filter(([, voteType]) => voteType === "agree" || voteType === "reject")
+        .map(([cardId, voteType]) => ({ cardId, voteType: voteType as DecisionCardVoteType }));
+      const data = await saveDecisionCardVotes(token, votes);
+      const roundNo = Number(data.roundNo || decisionGameState?.roundNo) || 1;
+      draftVotesDirtyRef.current = false;
+      const ownVotes: Record<string, DecisionCardVoteType | ""> = {};
+      (data.myVotes || []).forEach((vote) => {
+        ownVotes[String(vote.cardId)] = vote.voteType;
+      });
+      setDraftVotes(ownVotes);
+      setSubmittedVoteRound(roundNo);
+      setSelectedBoardGroupId(null);
+      setDecisionGameState((prev) => ({ ...(prev || data), ...data, roundNo }));
+      setMessage("投票已送出，現在可以查看公告欄票數實況。未投的牌會視為 △ 保留。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "送出投票失敗");
+    } finally {
+      setIsVoteSubmitting(false);
+    }
+  }
+
   return (
     <main className="game-adventure-page uiux-page-shell relative min-h-screen overflow-x-hidden px-3 py-3 text-white sm:px-6 sm:py-4">
       <CardPackVisualEffects energyBurstActive={energyBurstActive} />
       <CardPackPageHeader
         isOpened={isOpened}
         packTitle={meta.title}
-        onBack={onBack}
       />
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100svh-72px)] w-full max-w-6xl flex-col items-center justify-start gap-4 pb-3 pt-4">
@@ -1447,9 +1775,9 @@ export default function CardPackPage({
                             }}
                             transition={{ duration: 1.65, ease: "easeOut" }}
                           />
-                          {cards.map((card, index) => {
+                          {availableCards.map((card, index) => {
                             const angle =
-                              (index / Math.max(cards.length, 1)) *
+                              (index / availableCardCount) *
                                 Math.PI *
                                 2 -
                               Math.PI / 2;
@@ -1518,6 +1846,8 @@ export default function CardPackPage({
             </div>
           </div>
         ) : (
+          <>
+          {!showDecisionBoard ? (
           <div className="w-full">
             <div className="mb-5 flex flex-col items-center justify-between gap-3 rounded-[28px] border border-white/45 bg-[#fffaf0]/92 px-4 py-4 text-[#2f251c] shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur sm:flex-row">
               <div>
@@ -1525,7 +1855,7 @@ export default function CardPackPage({
                   SELECT THREE CARDS
                 </p>
                 <p className="mt-1 text-lg font-black text-[#2f251c]">
-                  已選擇 {selectedIds.length} / 3 張
+                  第 {decisionGameState?.roundNo || 1} 輪｜已選擇 {selectedIds.length} / 3 張｜手牌 {availableCards.length} 張
                 </p>
                 {!isGroupLeader ? (
                   <p className="mt-1 text-xs font-bold text-[#6b5a44]">
@@ -1567,7 +1897,7 @@ export default function CardPackPage({
                 className={`pointer-events-none absolute left-1/2 top-1/2 h-[42%] w-[42%] -translate-x-1/2 -translate-y-1/2 rounded-full ${meta.stageGlow}`}
               />
 
-              {cards.map((card, index) => {
+              {availableCards.map((card, index) => {
                 if (hiddenCardIds.includes(card.id)) return null;
 
                 const selected = selectedIds.includes(card.id);
@@ -1575,7 +1905,7 @@ export default function CardPackPage({
                 const flipped = flippedIds.has(card.id);
                 const shouldCenterLockedCard =
                   isLocked && selected && selectedOrderIndex >= 0;
-                const orbitAngle = wheelRotation + index * (360 / cards.length);
+                const orbitAngle = wheelRotation + index * (360 / availableCardCount);
                 const angleRad = ((orbitAngle - 90) * Math.PI) / 180;
                 const orbitX = Math.cos(angleRad) * wheelMetrics.radius;
                 const orbitY = Math.sin(angleRad) * wheelMetrics.radius;
@@ -1657,9 +1987,22 @@ export default function CardPackPage({
                       <div className="relative">
                         {selected ? (
                           <>
-                            <div className="pointer-events-none absolute -inset-3 rounded-[30px] bg-[conic-gradient(from_90deg,rgba(255,255,255,0.15),#facc15,#fff7ad,#f59e0b,#ffffff,#facc15,rgba(255,255,255,0.15))] opacity-100 blur-[1px]" />
+                            <div className="pointer-events-none absolute -inset-3 rounded-[30px] bg-[conic-gradient(from_90deg,rgba(255,255,255,0.15),#facc15,#fff7ad,#f59e0b,#ffffff,#facc15,rgba(255,255,255,0.15))] opacity-100" />
                             <div className="pointer-events-none absolute -inset-1.5 z-10 rounded-[27px] border-[5px] border-yellow-300 shadow-[0_0_0_3px_rgba(255,255,255,0.92),0_0_30px_rgba(250,204,21,0.95),0_0_70px_rgba(245,158,11,0.42)]" />
                           </>
+                        ) : null}
+                        {selected ? (
+                          <button
+                            type="button"
+                            data-card-button="true"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setCoreCardId(card.id);
+                            }}
+                            className={`absolute -top-5 left-1/2 z-30 -translate-x-1/2 rounded-full border px-3 py-1 text-[10px] font-black shadow ${coreCardId === card.id ? "border-rose-200 bg-rose-500 text-white" : "border-white/70 bg-white/90 text-stone-700"}`}
+                          >
+                            {coreCardId === card.id ? "核心牌" : "設為核心"}
+                          </button>
                         ) : null}
                         <button
                           type="button"
@@ -1784,8 +2127,296 @@ export default function CardPackPage({
               })}
             </div>
           </div>
+          ) : null}
+
+            {showDecisionBoard ? (
+            <section className="w-full">
+              {!hasSubmittedCurrentRoundVote ? (
+              <div className="rounded-[32px] border border-white/45 bg-[#fffaf0]/95 p-4 text-[#2f251c] shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black tracking-[0.26em] text-[#846b31]">PUBLIC BOARD</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-3">
+                      <h2 className="text-2xl font-black">公告欄投票</h2>
+                      <p className={`rounded-full px-4 py-2 text-xs font-black ${allGroupsSubmittedProposals ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+                        {allGroupsSubmittedProposals ? "六個局都已送出提案，可以送出投票" : `等待提案完成：${submittedProposalGroupCount}/${GROUP_ORDER.length} 局已送出`}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-sm font-bold leading-7 text-[#6b5a44]">
+                      第 {decisionGameState?.roundNo || 1} 輪公告欄。組長可對其他組的牌投 O 同意、X 反對、△ 保留；同意票與反對票各最多 5 張，未投視為 △。
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:items-end">
+                    {isGroupLeader ? (
+                      <button
+                        type="button"
+                        onClick={submitVotes}
+                        disabled={isVoteSubmitting || !allGroupsSubmittedProposals}
+                        className={`min-w-[180px] rounded-[24px] border-2 px-6 py-3 text-base font-black shadow-[0_8px_0_rgba(47,37,28,0.25)] transition active:translate-y-1 active:shadow-[0_3px_0_rgba(47,37,28,0.22)] disabled:cursor-not-allowed disabled:shadow-none ${allGroupsSubmittedProposals ? "border-[#2f251c] bg-gradient-to-br from-[#4a3828] to-[#2f251c] text-white hover:-translate-y-0.5" : "border-stone-300 bg-stone-200 text-stone-500"}`}
+                      >
+                        {isVoteSubmitting ? "送出中..." : allGroupsSubmittedProposals ? "送出投票" : "等待六局提案"}
+                      </button>
+                    ) : null}
+                    <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                      <span className="rounded-[20px] border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 shadow-[0_6px_0_rgba(16,185,129,0.18)]">
+                        O 同意 {Object.values(draftVotes).filter((value) => value === "agree").length}/5
+                      </span>
+                      <span className="rounded-[20px] border-2 border-rose-300 bg-gradient-to-br from-rose-50 to-rose-100 px-4 py-2 text-sm font-black text-rose-700 shadow-[0_6px_0_rgba(244,63,94,0.18)]">
+                        X 反對 {Object.values(draftVotes).filter((value) => value === "reject").length}/5
+                      </span>
+                      <span className="rounded-[20px] border-2 border-stone-300 bg-gradient-to-br from-white to-stone-100 px-4 py-2 text-sm font-black text-stone-600 shadow-[0_6px_0_rgba(120,113,108,0.16)]">
+                        △ 保留不限
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {message ? (
+                  <div className="mt-4 rounded-2xl border border-[#d8c79f] bg-white px-4 py-3 text-sm font-black text-[#4a3828]">{message}</div>
+                ) : null}
+
+                <div className="mt-5 rounded-[30px] border border-[#d8c79f] bg-white/74 p-3 shadow-inner">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black tracking-[0.2em] text-[#846b31]">各局決策卡閱覽</p>
+                      <p className="mt-1 text-sm font-bold text-[#6b5a44]">灰色代表該局尚未送出提案；亮起代表可以點開查看該局三張牌。</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {boardGroupSummaries.map((item) => {
+                      const hasProposal = item.cards.length > 0;
+                      const isSelected = selectedBoardGroupId === item.groupId;
+                      return (
+                        <button
+                          key={item.groupId}
+                          type="button"
+                          disabled={!hasProposal}
+                          onClick={() => hasProposal && setSelectedBoardGroupId(item.groupId)}
+                          className={`relative overflow-hidden rounded-[28px] border px-4 py-4 text-left shadow-sm transition ${
+                            hasProposal
+                              ? `border-white/70 bg-gradient-to-br ${item.meta.cardFace} hover:-translate-y-1 hover:shadow-xl ${isSelected ? "ring-4 ring-amber-300/80" : ""}`
+                              : "border-stone-200 bg-stone-200/85 opacity-75 grayscale"
+                          }`}
+                        >
+                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.65),transparent_28%)]" />
+                          <div className="relative z-10 flex items-center justify-between gap-3">
+                            <div>
+                              <p className={`text-lg font-black ${hasProposal ? item.meta.cardText : "text-stone-500"}`}>{formatBoardCardTitle(item.meta.title)}</p>
+                              <p className={`mt-1 text-xs font-black ${hasProposal ? item.meta.cardMutedText : "text-stone-500"}`}>
+                                {hasProposal ? `已送出 ${item.cards.length} 張提案牌` : "尚未送出提案"}
+                              </p>
+                            </div>
+                            <span className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl ${hasProposal ? "bg-white/70" : "bg-stone-300 text-stone-500"}`}>{hasProposal ? item.meta.emoji : "—"}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {selectedBoardGroupId ? (
+                    <div className="mt-5 rounded-[28px] border border-white/80 bg-white/82 p-4 shadow-sm">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs font-black tracking-[0.2em] text-[#846b31]">目前開啟</p>
+                          <h3 className="mt-1 text-xl font-black text-[#2f251c]">{formatBoardCardTitle(GROUP_PACK_META[selectedBoardGroupId].title)}</h3>
+                        </div>
+                        <p className="rounded-full bg-[#f3ead7] px-3 py-1 text-xs font-black text-[#6b5a44]">點擊卡牌可翻面看理由</p>
+                      </div>
+
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {selectedBoardGroupCards.map(({ proposal, cardId, card }) => {
+                          const isOwn = String(proposal.groupId) === String(group);
+                          const vote = draftVotes[String(cardId)] || "";
+                          return (
+                            <article key={`${proposal.groupId}-${cardId}`} className="rounded-[28px] border border-[#d8c79f] bg-white/90 p-3 shadow-sm">
+                              <div className="flex justify-center">
+                                {renderBoardCard(String(cardId), card, { groupId: proposal.groupId, backText: proposal.reason || "尚未填寫理由" })}
+                              </div>
+                              {isGroupLeader && !isOwn ? (
+                                <div className="mt-4 rounded-[24px] border border-[#ead9b5] bg-[#fff8e8] p-2 shadow-inner">
+                                  <p className="mb-2 text-center text-[11px] font-black tracking-[0.16em] text-[#8a6b35]">選擇此牌立場</p>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setVote(String(cardId), vote === "agree" ? "" : "agree")}
+                                      className={`group relative min-h-[72px] overflow-hidden rounded-[22px] border-2 px-2 py-2 text-center font-black transition active:translate-y-1 ${vote === "agree" ? "border-emerald-600 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-[0_7px_0_rgba(4,120,87,0.42)]" : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-700 shadow-[0_6px_0_rgba(16,185,129,0.16)] hover:-translate-y-0.5 hover:border-emerald-400"}`}
+                                    >
+                                      <span className="block text-3xl leading-none">O</span>
+                                      <span className="mt-1 block text-xs">同意</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setVote(String(cardId), vote === "reject" ? "" : "reject")}
+                                      className={`group relative min-h-[72px] overflow-hidden rounded-[22px] border-2 px-2 py-2 text-center font-black transition active:translate-y-1 ${vote === "reject" ? "border-rose-600 bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-[0_7px_0_rgba(190,18,60,0.42)]" : "border-rose-200 bg-gradient-to-br from-rose-50 to-rose-100 text-rose-700 shadow-[0_6px_0_rgba(244,63,94,0.16)] hover:-translate-y-0.5 hover:border-rose-400"}`}
+                                    >
+                                      <span className="block text-3xl leading-none">X</span>
+                                      <span className="mt-1 block text-xs">反對</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setVote(String(cardId), "")}
+                                      className={`group relative min-h-[72px] overflow-hidden rounded-[22px] border-2 px-2 py-2 text-center font-black transition active:translate-y-1 ${!vote ? "border-stone-500 bg-gradient-to-br from-stone-300 to-stone-500 text-white shadow-[0_7px_0_rgba(87,83,78,0.35)]" : "border-stone-200 bg-gradient-to-br from-white to-stone-100 text-stone-600 shadow-[0_6px_0_rgba(120,113,108,0.14)] hover:-translate-y-0.5 hover:border-stone-400"}`}
+                                    >
+                                      <span className="block text-3xl leading-none">△</span>
+                                      <span className="mt-1 block text-xs">保留</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="mt-3 rounded-2xl bg-stone-100 px-3 py-2 text-center text-xs font-black text-stone-500">
+                                  {isOwn ? "自己的牌不可投票" : "等待組長投票"}
+                                </p>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {!boardCards.length ? <p className="mt-4 text-sm font-bold text-[#6b5a44]">目前公告欄還沒有提案。</p> : null}
+                </div>
+              </div>
+              ) : null}
+
+              {hasSubmittedCurrentRoundVote ? (
+              <div className="mx-auto w-full max-w-5xl rounded-[32px] border border-white/45 bg-[#fffaf0]/95 p-4 text-[#2f251c] shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur sm:p-5">
+                <p className="text-xs font-black tracking-[0.22em] text-[#846b31]">LIVE VOTE BOARD</p>
+                <h2 className="mt-1 text-2xl font-black">公告欄票數實況</h2>
+                <p className="mt-2 text-xs font-bold leading-6 text-[#6b5a44]">你已完成本輪投票。這裡會顯示每一張公告牌目前的 O／X／△ 票數，以及各局是否已完成投票。</p>
+
+                <div className="mt-4 rounded-3xl border border-[#d8c79f] bg-white/90 p-3">
+                  <p className="text-sm font-black text-[#2f251c]">各局投票完成狀態</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {votingGroupStatus.map((item) => (
+                      <div key={item.groupId} className={`flex items-center justify-between gap-3 rounded-2xl border border-white/60 bg-gradient-to-br ${item.meta.cardFace} px-3 py-2 shadow-sm ${item.completed ? "opacity-100" : "opacity-70"}`}>
+                        <span className={`text-xs font-black ${item.meta.cardText}`}>{formatBoardCardTitle(item.meta.title)}</span>
+                        <span className={`text-xs font-black ${item.meta.cardText}`}>{item.completed ? "已完成投票" : "未完成投票"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-[#d8c79f] bg-white/90 p-3">
+                  {publicVoteLiveRows.length ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {publicVoteLiveRows.map((row) => {
+                        const groupMeta = GROUP_PACK_META[resolveGroup(row.proposal.groupId || row.card?.groupId || group)];
+                        const boardTitle = formatBoardCardTitle(row.card?.title, row.cardId);
+                        return (
+                          <article key={row.key} className={`min-h-[190px] rounded-[24px] border border-white/60 bg-gradient-to-br ${groupMeta.cardFace} p-3 shadow-sm`}>
+                            <div className="flex h-full flex-col justify-between gap-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className={`text-xs font-black tracking-[0.14em] ${groupMeta.cardMutedText}`}>{boardTitle}</p>
+                                  <p className={`mt-2 line-clamp-3 text-base font-black leading-6 ${groupMeta.cardText}`}>{row.card?.frontText || row.cardId}</p>
+                                </div>
+                                <div className={`shrink-0 rounded-[22px] border-2 px-4 py-2 text-center ${getLiveResultSymbolClass(row.result)}`}>
+                                  <p className="text-[10px] font-black tracking-[0.16em] opacity-75">目前</p>
+                                  <p className="text-4xl font-black leading-none">{getLiveResultSymbol(row.result)}</p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <div className="grid min-h-[2.25rem] grid-cols-5 gap-1.5 rounded-2xl border border-white/70 bg-white/72 p-2 shadow-inner">
+                                  {Array.from({ length: row.agree }).map((_, index) => <span key={`o-${index}`} className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-700 shadow-sm">O</span>)}
+                                  {Array.from({ length: row.reject }).map((_, index) => <span key={`x-${index}`} className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-rose-100 text-xs font-black text-rose-700 shadow-sm">X</span>)}
+                                  {Array.from({ length: row.keep }).map((_, index) => <span key={`k-${index}`} className="mx-auto flex h-7 w-7 items-center justify-center rounded-full bg-stone-200 text-xs font-black text-stone-600 shadow-sm">△</span>)}
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-center">
+                                    <p className="text-[10px] font-black text-emerald-700">O 同意</p>
+                                    <p className="mt-0.5 text-xl font-black text-emerald-700">{row.agree}</p>
+                                  </div>
+                                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-2 py-1.5 text-center">
+                                    <p className="text-[10px] font-black text-rose-700">X 反對</p>
+                                    <p className="mt-0.5 text-xl font-black text-rose-700">{row.reject}</p>
+                                  </div>
+                                  <div className="rounded-xl border border-stone-200 bg-stone-50 px-2 py-1.5 text-center">
+                                    <p className="text-[10px] font-black text-stone-600">△ 保留</p>
+                                    <p className="mt-0.5 text-xl font-black text-stone-600">{row.keep}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-stone-50 px-4 py-6 text-center text-sm font-black text-stone-500">目前公告欄還沒有牌。</div>
+                  )}
+                </div>
+              </div>
+              ) : null}
+            </section>
+            ) : null}
+          </>
         )}
       </section>
+
+      {isOpened && decisionGameState ? (
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+          {showAcceptedDecisionPanel ? (
+            <div className="max-h-[72vh] w-[min(92vw,720px)] overflow-hidden rounded-[34px] border border-white/60 bg-[#fffaf0]/96 text-[#2f251c] shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur">
+              <div className="flex items-start justify-between gap-3 border-b border-[#ead8ad] px-5 py-4">
+                <div>
+                  <p className="text-xs font-black tracking-[0.22em] text-[#846b31]">ACCEPTED DECISIONS</p>
+                  <h2 className="mt-1 text-xl font-black">通過決策</h2>
+                  <p className="mt-1 text-xs font-bold leading-5 text-[#6b5a44]">顯示目前所有已通過的牌，不分組別彙整。</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAcceptedDecisionPanel(false)}
+                  className="rounded-full border border-[#d8c79f] bg-white px-3 py-2 text-xs font-black text-[#5a452f] shadow-sm transition hover:-translate-y-0.5"
+                >
+                  收起
+                </button>
+              </div>
+              <div className="max-h-[56vh] overflow-y-auto px-4 py-4">
+                {acceptedDecisionCards.length ? (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {acceptedDecisionCards.map((item) => (
+                      <article key={item.key} className="rounded-[28px] border border-[#d8c79f] bg-white/88 p-3 shadow-sm">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black text-emerald-800">第 {item.roundNo} 輪通過</span>
+                          {item.coreCard ? <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black text-amber-800">核心加分</span> : null}
+                        </div>
+                        <div className="flex justify-center">
+                          {renderBoardCard(item.cardId, item.card, { groupId: item.groupId, compact: true })}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[26px] border border-dashed border-[#d8c79f] bg-white/72 px-5 py-8 text-center">
+                    <p className="text-sm font-black text-[#6b5a44]">目前還沒有通過的決策牌。</p>
+                    <p className="mt-2 text-xs font-bold text-[#8a765a]">教師結算本輪後，通過牌會出現在這裡。</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setShowAcceptedDecisionPanel((value) => !value)}
+            className="group relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-emerald-300 via-lime-200 to-amber-200 text-3xl shadow-[0_18px_46px_rgba(0,0,0,0.28)] transition hover:-translate-y-1 hover:scale-105"
+            aria-label="查看通過決策"
+            title="查看通過決策"
+          >
+            <span className="absolute inset-1 rounded-full bg-white/30 blur-sm" />
+            <span className="relative">🏛️</span>
+            <span className="absolute -right-1 -top-1 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-[#2f251c] px-2 text-xs font-black text-white shadow">
+              {acceptedDecisionCards.length}
+            </span>
+            <span className="pointer-events-none absolute right-20 top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-full bg-[#2f251c] px-3 py-2 text-xs font-black text-white shadow-lg group-hover:block">
+              通過決策
+            </span>
+          </button>
+        </div>
+      ) : null}
 
       {showLockConfirmDialog ? (
         <CardPackLockConfirmDialog

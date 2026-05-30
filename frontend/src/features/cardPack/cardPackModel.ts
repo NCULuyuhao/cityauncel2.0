@@ -278,7 +278,9 @@ export type CardPackUiState = {
   selectedIds?: string[];
   flippedIds?: string[];
   lockReason?: string;
+  coreCardId?: string;
   wheelRotation?: number;
+  roundNo?: number;
 };
 
 function cardPackUiStorageKey(userId?: string | number | null) {
