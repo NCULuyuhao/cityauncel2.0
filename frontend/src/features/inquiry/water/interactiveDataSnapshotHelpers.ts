@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：互動式水資源快照工具，負責把使用者選取的水資源資料轉成可保存卡片。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { createCardFromStoredSnapshotCard } from "@/features/inquiry/snapshots/snapshotCardFactory";
 import {
   buildSnapshotSvgDataUrl as buildSnapshotSvgDataUrlFromBuilder,
@@ -1058,6 +1064,7 @@ export const snapshotBuilderDependencies: SnapshotBuilderDependencies = {
   getWaterQualityStationMapOverlay,
 };
 
+// 水資源線索卡會把當下圖表/測站狀態轉成快照，後續調查書才知道學生當時看的是哪一筆資料。
 export function buildSnapshotSvgDataUrl(meta: EvidenceSnapshotMeta) {
   return buildSnapshotSvgDataUrlFromBuilder(meta, snapshotBuilderDependencies);
 }

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：結局與鎖屏畫面元件，負責全班流程完成後的學生端顯示。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { motion } from "framer-motion";
 
 type FinalEndingCard = {
@@ -288,14 +294,14 @@ export function FinalEndingPage({
 export function StudentScreenLockOverlay() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-stone-950/92 p-6 text-center text-white backdrop-blur-md">
-      <div className="w-full max-w-2xl rounded-[34px] border border-white/20 bg-white/10 px-6 py-10 shadow-[0_28px_90px_rgba(0,0,0,0.45)] sm:px-10 sm:py-14">
-        <p className="text-sm font-black tracking-[0.32em] text-white/65">
+      <div className="w-full max-w-2xl rounded-[34px] border border-white/70 bg-white/92 px-6 py-10 shadow-[0_28px_90px_rgba(0,0,0,0.45)] sm:px-10 sm:py-14">
+        <p className="text-sm font-black tracking-[0.32em] text-slate-950">
           SCREEN LOCKED
         </p>
-        <h2 className="mt-5 text-4xl font-black leading-tight tracking-[0.08em] text-white sm:text-6xl">
+        <h2 className="mt-5 text-4xl font-black leading-tight tracking-[0.08em] text-slate-950 sm:text-6xl">
           畫面已鎖定
         </h2>
-        <p className="mt-6 text-2xl font-black leading-relaxed tracking-[0.08em] text-amber-100 sm:text-4xl">
+        <p className="mt-6 text-2xl font-black leading-relaxed tracking-[0.08em] text-slate-950 sm:text-4xl">
           請抬頭看向教師
         </p>
       </div>

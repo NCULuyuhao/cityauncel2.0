@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：首頁調查書總結模型，處理完成狀態、排序與 upsert 規則。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import type { EvidenceCardSummary } from "./evidenceCardSummary";
 
 export type InquiryIntroStageRecordItem = {

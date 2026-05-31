@@ -4,6 +4,7 @@
  * 維護重點：這裡只補充閱讀脈絡與流程責任，避免改動既有功能邏輯。
  */
 
+// 角色卡包同時支援舊資料遷移與新版回合制投票，因此 schema 檢查集中在這個 service。
 function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, tableHasColumn }) {
   const CARD_COLUMNS = ["selected_card_id_1", "selected_card_id_2", "selected_card_id_3"];
   const GROUPS_COUNT = Object.keys(GROUPS || {}).length || 6;
@@ -857,6 +858,7 @@ function createDecisioncardService({ pool, GROUPS, parseJSON, tableExists, table
     }));
   }
 
+  // 結算只在後端進行：通過牌、扣分與下一輪牌庫都以資料庫狀態為準，避免前端各自算出不同結果。
   async function settleCurrentDecisionRound({ connection = pool } = {}) {
     await ensureDecisioncardsTable();
     const proposals = await getAllDecisioncards({ connection, forUpdate: true });

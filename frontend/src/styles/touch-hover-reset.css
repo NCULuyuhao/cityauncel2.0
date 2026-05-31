@@ -1,3 +1,9 @@
+/*
+ * CityAuncel maintainability notes
+ * 檔案用途：觸控裝置 hover/reset 樣式，避免平板上殘留滑鼠 hover 視覺狀態。
+ * 維護重點：註解說明此檔責任範圍，修改樣式時請同步檢查響應式與 iPad/PWA 顯示。
+ */
+
 @media (hover: none), (pointer: coarse) {
   .uiux-page-shell button:hover,
   .uiux-page-shell [role="button"]:hover,

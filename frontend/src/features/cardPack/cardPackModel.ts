@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：角色卡包前端模型，集中定義組別牌庫、卡包 UI 狀態、卡片標準化與圖片預載。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import type React from "react";
 
 export type GroupKey =
@@ -220,6 +226,7 @@ const GROUP_TEXT: Record<GroupKey, string[]> = {
   ],
 };
 
+// 組別順序會影響公告欄、教師端與投票顯示，新增組別時需同步後端 GROUPS。
 export const GROUP_ORDER: GroupKey[] = [
   "environment",
   "government",
@@ -316,6 +323,7 @@ export function saveCardPackUiState(
   }
 }
 
+// 牌庫由組別生成，前端只負責顯示與選擇；真正鎖定與回合狀態仍以後端為準。
 export function buildPackCards(group: GroupKey): PackCard[] {
   const meta = GROUP_PACK_META[group];
   return GROUP_TEXT[group].map((text, index) => ({

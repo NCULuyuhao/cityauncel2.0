@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：嫌疑角色投票資料模型，定義角色群組、排序與預設狀態。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 export const SUSPECT_GROUPS = [
   {
     id: "public",

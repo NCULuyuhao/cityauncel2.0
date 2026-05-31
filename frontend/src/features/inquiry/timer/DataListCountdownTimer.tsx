@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：數據清單倒數顯示元件，負責呈現剩餘時間與狀態提示。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Clock } from "lucide-react";
 import {

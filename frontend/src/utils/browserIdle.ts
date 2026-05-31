@@ -1,4 +1,10 @@
 /**
+ * CityAuncel maintainability notes
+ * 檔案用途：瀏覽器 idle callback 相容工具，用來把非即時工作延後，降低頁面互動卡頓。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
+/**
  * Browser idle scheduling helper.
  * 使用 requestIdleCallback（若瀏覽器支援）延後非即時工作，例如草稿儲存與圖片預載。
  */

@@ -135,6 +135,7 @@ const MemoizedTrophyPanel = memo(TrophyPanel);
 const MemoizedTitleRewardCelebration = memo(TitleRewardCelebration);
 const MemoizedCollectedCardPreview = memo(CollectedCardPreview);
 
+// InquiryData 保留頁面級流程；卡片、前導、送出、倒數與 AI 細節已拆到 features/inquiry。
 export default function InquiryData({
   token,
   orientationMainChoice = "",

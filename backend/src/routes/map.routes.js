@@ -23,6 +23,7 @@ const {
 } = require("../services/mapDecisionService");
 
 const ALL_DISTRICTS_SENTINEL = "__ALL__";
+// 個人地圖限制：保育與開發各最多 9 個；「我不知道」不列入限制。
 const PERSONAL_MAP_CHOICE_LIMIT = 9;
 
 const MAP_DISTRICT_NAMES = [
@@ -145,6 +146,7 @@ function createMapRoutes({ getRequestUserProfile, getActor, mapGroupName, publis
     return lockRow || null;
   }
 
+  // 小組地圖進入條件與統計都需要同時讀成員、個人選擇與個人鎖定狀態。
   async function getGroupMembersAndMaps(groupId) {
     const [members] = await pool.query(
       `SELECT id, username, NULL AS email, is_group_leader

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：任務一瀏覽器返回處理 hook，避免學生誤按返回導致草稿或流程狀態遺失。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { useCallback, useEffect, useRef } from "react";
 
 type HistoryMode = "push" | "replace";

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：任務一資料類型分頁元件，負責顯示目前資料分類與切換操作。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { motion } from "framer-motion";
 import { BookOpen, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";

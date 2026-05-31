@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：調查書送出確認對話框，送出前提醒學生檢查證據與理由。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 

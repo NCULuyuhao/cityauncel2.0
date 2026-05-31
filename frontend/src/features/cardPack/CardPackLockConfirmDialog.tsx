@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：角色卡包鎖定確認對話框，提醒組長送出後會同步到組員並進入公告投票流程。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import type { CardPackGroupMeta, PackCard } from "./cardPackModel";
 
 type CardPackLockConfirmDialogProps = {

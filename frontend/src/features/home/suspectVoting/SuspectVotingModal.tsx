@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：嫌疑角色投票彈窗，讓學生在指定階段提交角色判斷。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { useState } from "react";
 import { SUSPECT_GROUPS } from "@/features/home/suspectVoting/suspectVotingModel";
 

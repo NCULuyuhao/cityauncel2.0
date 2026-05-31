@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：首頁稱號資料模型，統一稱號 id、顯示名稱與支援範圍。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 export type TitleReward = {
   id: string;
   name: string;

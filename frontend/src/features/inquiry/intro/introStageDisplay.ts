@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前導任務階段顯示文字工具，讓不同階段的標題與提示集中管理。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 type InquiryIntroStageRecordItem = {
   type: "mainChoice" | "question" | "answer" | "selectedOptions" | "textInput";
   content: string | string[];

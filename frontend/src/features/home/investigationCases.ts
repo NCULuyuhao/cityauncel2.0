@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：調查書案例順序與查找工具，決定學生下一份探究任務對應的案件內容。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import type { FinalSummary } from "./finalSummaryModel";
 
 const INVESTIGATION_CASE_FLOW = [

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：任務一共用型別，集中定義卡片、草稿、前導回答、調查書與證據資料結構。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import type { Dispatch, SetStateAction } from "react";
 import type {
   CategoryKey,

@@ -42,6 +42,7 @@ import type {
   UnlockedCardData,
   User,
 } from "../features/cardPack/cardPackModel";
+// CardPackPage 同時處理組長操作與組員同步；鎖定動畫必須等後端成功或 realtime 確認後再播放。
 export default function CardPackPage({
   token,
   currentUser,

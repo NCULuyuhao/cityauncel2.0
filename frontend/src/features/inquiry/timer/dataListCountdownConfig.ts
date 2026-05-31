@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：數據清單倒數設定與恢復規則，讓倒數在切頁後能接續而非重置。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 export const DATA_LIST_COUNTDOWN_MS = 8 * 60 * 1000;
 export const DATA_LIST_THREE_MINUTE_MS = 3 * 60 * 1000;
 export const DATA_LIST_ONE_MINUTE_MS = 60 * 1000;

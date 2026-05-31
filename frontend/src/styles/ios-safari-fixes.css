@@ -1,4 +1,10 @@
 /*
+ * CityAuncel maintainability notes
+ * 檔案用途：iOS Safari 與 PWA 顯示修正，處理鍵盤、safe-area、全螢幕與觸控版面問題。
+ * 維護重點：註解說明此檔責任範圍，修改樣式時請同步檢查響應式與 iPad/PWA 顯示。
+ */
+
+/*
  * iOS Safari layout safety layer.
  * Safari on iPhone/iPad handles dynamic viewport height, fixed containers,
  * input zooming and 3D transforms differently from desktop Chromium/Android.

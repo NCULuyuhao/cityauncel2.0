@@ -1,4 +1,10 @@
 /**
+ * CityAuncel maintainability notes
+ * 檔案用途：任務一探究資料服務，負責把前端草稿、調查書、證據卡、蒐集理由與稱號轉成正規化資料表，也負責讀回前端需要的整包狀態。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
+/**
  * Inquiry data service
  *
  * Keeps inquiry normalization, persistence, reward, card, and activity-log logic
@@ -965,6 +971,7 @@ async function replaceEvidenceCards(connection, inquiryRecordId, evidenceCardIds
   );
 }
 
+// 任務一儲存採「整包同步」：前端送目前完整探究狀態，後端用 record_order 對齊後重建相關子表。
 async function replaceInquiryRecords(connection, userId, inquiryPlans, finalSummaries) {
   const rawSummaries = Array.isArray(finalSummaries) ? finalSummaries : [];
   const basePlans = uniquePlans(inquiryPlans);
@@ -1291,6 +1298,7 @@ async function replaceCards(connection, userId, cards) {
   );
 }
 
+// 前端啟動任務一時需要一包完整狀態；這裡把正規化資料重新組回舊 UI 容易使用的結構。
 async function readInquiryData(userId) {
   await ensureStudentCoinBalance(userId);
   await ensureInquiryNormalizedTables();
@@ -1509,6 +1517,7 @@ function countCompletedFinalSummaries(summaries) {
   return (Array.isArray(summaries) ? summaries : []).filter(isCompletedFinalSummary).length;
 }
 
+// 調查書可能先有前導目的、後有結論；upsert 需用 recordOrder / orientationCreatedAt 避免覆蓋不同回合。
 function upsertSummaryByPlanLink(summaries, nextSummary) {
   const normalizedNext = normalizeFinalSummaryData(nextSummary);
   const safeSummaries = Array.isArray(summaries) ? summaries : [];

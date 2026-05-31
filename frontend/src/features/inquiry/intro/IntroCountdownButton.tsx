@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前導任務倒數按鈕，控制學生進入下一步前的短暫等待與提示。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { useEffect, useState, type ReactNode } from "react";
 
 const INTRO_COUNTDOWN_SECONDS = 3;

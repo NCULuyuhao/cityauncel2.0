@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：任務一前導流程常數，集中管理選項與嫌疑角色群組。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 export const INTRO_TEXT_MIN_LENGTH = 8;
 export const SUSPECT_REASON_PROMPT_PREFIX = "我懷疑的原因是：";
 export const SUSPECT_REASON_INTUITION_TEXT = "我靠的是直覺，沒有理由";

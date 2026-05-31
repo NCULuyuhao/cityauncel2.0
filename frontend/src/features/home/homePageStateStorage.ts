@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：首頁 UI 狀態保存工具，記錄目前頁面、地圖選擇與返回位置。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import {
   readStorageJson,
   readStorageString,

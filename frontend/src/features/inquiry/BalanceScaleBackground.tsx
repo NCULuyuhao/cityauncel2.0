@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：任務一背景天秤視覺元件，將裝飾性背景與調查流程分離。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 

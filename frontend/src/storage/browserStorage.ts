@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：瀏覽器 storage 安全存取工具，統一處理 JSON parse 失敗與無 storage 環境。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 function getLocalStorage() {
   if (typeof window === "undefined") return null;
   return window.localStorage;

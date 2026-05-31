@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：角色卡包動畫效果元件，將開包、能量光效等視覺回饋與主流程狀態分離。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { motion } from "framer-motion";
 
 type CardPackVisualEffectsProps = {

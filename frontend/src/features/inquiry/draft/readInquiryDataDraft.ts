@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：任務一草稿讀取與修復工具，避免舊版 localStorage 破壞新版頁面。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { isSupportedInquiryTitleReward } from "@/features/inquiry/titleRewards/titleRewardStyles";
 import { normalizeCountdownMs } from "@/features/inquiry/timer/dataListCountdownConfig";
 import { readInquiryDraftJson } from "@/storage/inquiryDraftStorage";

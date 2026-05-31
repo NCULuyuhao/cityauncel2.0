@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端離線/延遲保護佇列，把重要寫入暫存在 localStorage，API 失敗時保留後續重送機會。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { ApiRequestError, authHeaders, requestJson } from "./apiClient";
 
 type PendingWriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
@@ -18,6 +24,7 @@ export type PendingWriteItem = PendingWriteInput & {
   lastError?: string;
 };
 
+// pending queue 依瀏覽器保存；同一台平板切換帳號時會再用 ownerKey 避免重送到別人帳號。
 const QUEUE_KEY = "cityauncel_pending_writes_v1";
 let flushPromise: Promise<void> | null = null;
 
@@ -76,6 +83,7 @@ function createId() {
   return `pending_${Date.now()}_${random}`;
 }
 
+// dedupeKey 用來合併同一筆狀態的重複寫入，例如地圖草稿連續自動保存只保留最新版。
 export function enqueuePendingWrite(input: PendingWriteInput): string {
   const queue = readQueue();
   const now = Date.now();
@@ -150,6 +158,7 @@ async function sendPendingWrite(token: string, item: PendingWriteItem) {
   });
 }
 
+// 先入佇列再送 API：即使送出中途斷線，localStorage 仍保留一筆可重試資料。
 export async function requestJsonWithPending<T>(
   token: string,
   input: PendingWriteInput,
@@ -175,6 +184,7 @@ export async function requestJsonWithPending<T>(
   }
 }
 
+// flush 只處理目前登入者的資料，避免多人共用裝置時把前一位學生的失敗請求送出。
 export async function flushPendingWrites(token: string): Promise<void> {
   if (!token || flushPromise) return flushPromise ?? Promise.resolve();
 

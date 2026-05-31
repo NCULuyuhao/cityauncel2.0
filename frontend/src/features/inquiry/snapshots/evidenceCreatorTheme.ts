@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：水資源快照轉卡的主題設定，確保產生的證據卡視覺一致。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 export const WATER_UNIFIED_CARD = {
   shell:
     "rounded-[24px] border border-[#d7e7f0] bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(247,251,255,1)_100%)] shadow-inner",

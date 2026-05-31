@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：數據清單倒數 hook，集中處理啟動、暫停、恢復與 localStorage 保存。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { useEffect, useRef, useState } from "react";
 import {
   DATA_LIST_COUNTDOWN_MS,
@@ -27,6 +33,7 @@ type UseDataListCountdownOptions = {
   onActivityLog?: (payload: ActivityLogPayload) => void;
 };
 
+// 倒數不是單純 setInterval：離開資料清單後要保存暫停時間，回來時接續學生上次剩餘秒數。
 export function useDataListCountdown({
   isActive,
   currentInquiryOrder,

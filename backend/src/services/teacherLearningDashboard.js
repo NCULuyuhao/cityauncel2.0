@@ -1,4 +1,10 @@
 /**
+ * CityAuncel maintainability notes
+ * 檔案用途：教師端學習分析服務，彙整調查書、卡片、AI、地圖、卡包與行為紀錄，產生可篩選的量化與質性指標。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
+/**
  * Teacher learning dashboard service.
  *
  * Keeps the analytics aggregation logic out of the Express route file while
@@ -95,6 +101,7 @@ function computeCompletion(conclusion) {
   return Boolean(text || evidenceIds.length > 0);
 }
 
+// 這裡不是評分，而是把教師可能關心的學生狀態轉成可篩選的描述標籤。
 function classifyStudentProfile(metrics) {
   if (metrics.activityCount <= 0) return "尚未開始型";
   if (metrics.explanatoryStrengthScore >= 75 && metrics.evidenceCategoryCount >= 2 && metrics.decisionFollowThroughCount > 0) return "證據推理型";
@@ -144,6 +151,7 @@ function buildStudentInsight(metrics, classAverage) {
   return "整體歷程穩定，可從時間軸觀察他如何由資料探索走向決策。";
 }
 
+// 教師端儀表板一次整合多張表，前端再依小組、學生、階段與條件篩選。
 async function getLearningDashboard(req, res) {
   try {
     await ensureUsersGenderColumn();

@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：前端 API 短期快取工具，降低首頁與教師端短時間重複 GET 對後端造成的壓力。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { authHeaders, requestJson } from "./apiClient";
 
 type CachedApiResponse<T = unknown> = {

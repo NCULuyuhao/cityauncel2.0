@@ -1,3 +1,9 @@
+/**
+ * CityAuncel maintainability notes
+ * 檔案用途：AI 幫幫忙卡片摘要推論工具，從卡片標題、類型與內容整理適合丟給 AI 的脈絡。
+ * 維護重點：註解說明此檔責任範圍，避免維護時把流程、API 與 UI 狀態混在同一層。
+ */
+
 import { categoryMetaMap } from "@/features/inquiry/cards/cardPresentation";
 import { MIAOLI_TOWNS } from "@/features/inquiry/water/waterResources";
 

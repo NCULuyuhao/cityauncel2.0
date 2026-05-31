@@ -155,6 +155,7 @@ const CardPackPage = lazy(preloadCardPackPage);
 const BehaviorRecord = lazy(preloadBehaviorRecordPage);
 
 // 首頁負責讀取登入者狀態、任務進度與教師端控制後的入口顯示。
+// HomePage 是全域流程樞紐：登入狀態、任務開關、地圖/卡包 realtime 與報告入口都在這裡被串接。
 export default function HomePage() {
   const [token, setToken] = useState<string | null>(() => readStoredToken());
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
