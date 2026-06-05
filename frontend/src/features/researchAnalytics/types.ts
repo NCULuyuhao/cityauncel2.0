@@ -42,6 +42,52 @@ export type SummaryRow = {
   groupName?: string;
 };
 
+export type MapChoiceRecord = {
+  id?: number;
+  scope: string;
+  ownerId?: string | number | null;
+  userId?: number | null;
+  username?: string | null;
+  gender?: string | null;
+  genderLabel?: string;
+  groupId?: string;
+  groupName?: string;
+  districtName: string;
+  choice: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type DecisionCardRecord = {
+  roundNo: number;
+  groupId: string;
+  groupName?: string;
+  cardId: string;
+  coreCard?: boolean | number;
+  agreeCount?: number;
+  rejectCount?: number;
+  keepCount?: number;
+  result?: string;
+  reason?: string;
+  settledAt?: string | null;
+};
+
+export type DecisionLogRecord = {
+  id?: number;
+  groupId: string;
+  groupName?: string;
+  actionType?: string;
+  roundNo?: number;
+  selectedCardId1?: string | null;
+  selectedCardId2?: string | null;
+  selectedCardId3?: string | null;
+  coreCardId?: string | null;
+  lockedByUserId?: number | null;
+  lockedAt?: string | null;
+  lockReason?: string | null;
+  createdAt?: string | null;
+};
+
 export type RawStudentRecord = {
   profile: {
     userId: number;
@@ -56,7 +102,7 @@ export type RawStudentRecord = {
   dataCards: Array<any>;
   aiRecords: Array<any>;
   rewards: Array<any>;
-  mapChoices: Array<any>;
+  mapChoices: MapChoiceRecord[];
 };
 
 export type ResearchAnalyticsPayload = {
@@ -79,5 +125,10 @@ export type ResearchAnalyticsPayload = {
   genderAnalysis: SummaryRow[];
   groupAnalysis: SummaryRow[];
   rawStudentRecords: RawStudentRecord[];
+  stageRecords: {
+    mapChoices: MapChoiceRecord[];
+    decisionCards: DecisionCardRecord[];
+    decisionLogs: DecisionLogRecord[];
+  };
   exports: Record<string, string>;
 };

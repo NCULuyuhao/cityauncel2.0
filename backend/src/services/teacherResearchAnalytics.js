@@ -212,14 +212,41 @@ function createTeacherResearchAnalyticsService(dependencies) {
          ORDER BY u.group_id, u.username, c.unlocked_at`,
       );
 
-      const [aiRows] = await pool.query(
+      const [aiRawRows] = await pool.query(
         `SELECT a.id, a.user_id AS userId, u.username, u.gender, u.group_id AS groupId, a.round_key AS roundKey, a.scope,
-                a.need_type AS needType, a.help_category AS helpCategory, a.action_type AS actionType,
-                a.request_text AS requestText, a.response_text AS responseText, a.created_at AS createdAt
+                a.session_id AS sessionId, a.need_type AS needType, a.help_category AS helpCategory, a.action_type AS actionType,
+                a.request_text AS requestText, a.response_text AS responseText, a.response_source AS responseSource,
+                a.context_label AS contextLabel, a.page_label AS pageLabel, a.focus_label AS focusLabel,
+                a.focus_text AS focusText, a.collection_reflection_text AS collectionReflectionText,
+                a.active_cards_count AS activeCardsCount, a.unlocked_cards_count AS unlockedCardsCount,
+                a.all_unlocked_cards_count AS allUnlockedCardsCount, a.turns_in_help AS turnsInHelp,
+                a.checks_in_help AS checksInHelp, a.created_at AS createdAt
          FROM ai_helper_records a
          JOIN users u ON u.id = a.user_id
          ORDER BY a.created_at, a.id`,
       );
+
+      const aiRows = aiRawRows
+        .filter((row) => row.actionType !== 'chat' || row.responseText)
+        .map((row) => {
+          const actionLabel =
+            row.actionType === 'unlock' ? '解鎖 AI 幫幫忙'
+              : row.actionType === 'start_help' ? '開始使用 AI'
+                : row.actionType === 'continue_help' ? '繼續使用 AI'
+                  : row.actionType === 'end_help' ? '結束 AI 協助'
+                    : row.actionType === 'chat' ? 'AI 回覆'
+                      : row.actionType || 'AI 紀錄';
+          const studentVisibleText = row.actionType === 'chat'
+            ? (row.focusText || row.collectionReflectionText || null)
+            : (row.requestText || row.focusText || row.collectionReflectionText || null);
+          return {
+            ...row,
+            actionLabel,
+            aiTypeLabel: row.helpCategory || row.needType || row.actionType || '未分類',
+            studentVisibleText,
+            aiReplyText: row.actionType === 'chat' ? (row.responseText || null) : null,
+          };
+        });
 
       const [rewardRows] = await pool.query(
         `SELECT r.user_id AS userId, u.username, u.gender, u.group_id AS groupId, r.reward_type AS rewardType, r.reward_key AS rewardKey, r.earned_at AS earnedAt
@@ -429,13 +456,34 @@ function createTeacherResearchAnalyticsService(dependencies) {
         };
       });
 
+      const mapChoiceRecords = mapRows.map((row) => ({
+        ...row,
+        userId: row.userId == null ? null : Number(row.userId),
+        genderLabel: genderLabel(row.gender),
+        groupId: row.groupId || 'unassigned',
+        groupName: mapGroupName(row.groupId || 'unassigned'),
+      }));
+
+      const decisionCardRecords = decisionRows.map((row) => ({
+        ...row,
+        groupId: row.groupId || 'unassigned',
+        groupName: mapGroupName(row.groupId || 'unassigned'),
+        coreCard: Boolean(row.coreCard),
+      }));
+
+      const decisionLogRecords = decisionLogRows.map((row) => ({
+        ...row,
+        groupId: row.groupId || 'unassigned',
+        groupName: mapGroupName(row.groupId || 'unassigned'),
+      }));
+
       const rawStudentRecords = students.map((student) => ({
         profile: student,
         inquiries: inquiryRecords.filter((record) => record.userId === student.userId),
         dataCards: dataCardRecords.filter((record) => record.userId === student.userId),
         aiRecords: aiRows.filter((row) => Number(row.userId) === student.userId),
         rewards: rewardRows.filter((row) => Number(row.userId) === student.userId),
-        mapChoices: mapRows.filter((row) => Number(row.userId) === student.userId || (row.scope !== 'personal' && row.groupId === student.groupId)),
+        mapChoices: mapChoiceRecords.filter((row) => Number(row.userId) === student.userId || (row.scope !== 'personal' && row.groupId === student.groupId)),
       }));
 
       const exports = {
@@ -451,7 +499,8 @@ function createTeacherResearchAnalyticsService(dependencies) {
         ]),
         aiCsv: toCsv(aiRows, [
           { header: '學生', value: 'username' }, { header: '性別', value: (r) => genderLabel(r.gender) }, { header: '組別', value: (r) => mapGroupName(r.groupId || 'unassigned') },
-          { header: '時間', value: 'createdAt' }, { header: 'AI類型', value: (r) => r.helpCategory || r.needType || r.actionType }, { header: '使用者輸入', value: 'requestText' }, { header: 'AI回覆', value: 'responseText' },
+          { header: '時間', value: 'createdAt' }, { header: 'AI使用階段', value: 'actionLabel' }, { header: 'AI類型', value: 'aiTypeLabel' },
+          { header: '學生可見選擇或輸入', value: 'studentVisibleText' }, { header: 'AI回覆', value: 'aiReplyText' },
         ]),
         mapCsv: toCsv(mapRows, [
           { header: '學生', value: 'username' }, { header: '性別', value: (r) => genderLabel(r.gender) }, { header: '組別', value: (r) => mapGroupName(r.groupId || 'unassigned') },
@@ -489,6 +538,11 @@ function createTeacherResearchAnalyticsService(dependencies) {
         genderAnalysis,
         groupAnalysis,
         rawStudentRecords,
+        stageRecords: {
+          mapChoices: mapChoiceRecords,
+          decisionCards: decisionCardRecords,
+          decisionLogs: decisionLogRecords,
+        },
         exports,
       });
     } catch (error) {
