@@ -6,6 +6,7 @@
 
 const express = require("express");
 const { createTeacherLearningDashboardService } = require("../services/teacherLearningDashboard");
+const { createTeacherResearchAnalyticsService } = require("../services/teacherResearchAnalytics");
 
 function createTeacherRoutes(dependencies) {
   const {
@@ -378,7 +379,24 @@ router.get(
   teacherLearningDashboardService.getLearningDashboard,
 );
 
+const teacherResearchAnalyticsService = createTeacherResearchAnalyticsService({
+  pool,
+  GROUPS,
+  parseJSON,
+  mapGroupName,
+  ensureUsersGenderColumn,
+  ensureDataCardSourcesTable,
+  ensureMapChoicesTable,
+  ensureInquiryNormalizedTables,
+  ensureDecisioncardsTable,
+});
 
+router.get(
+  "/api/teacher/research-analytics",
+  authenticateToken,
+  requireTeacher,
+  teacherResearchAnalyticsService.getResearchAnalytics,
+);
 
 
 

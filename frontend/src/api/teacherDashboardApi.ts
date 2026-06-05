@@ -11,3 +11,9 @@ export function getTeacherLearningDashboard<TDashboard = unknown>(token?: string
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
+
+export function getTeacherResearchAnalytics<TDashboard = unknown>(token?: string) {
+  return requestJson<TDashboard>("/api/teacher/research-analytics", {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+}
